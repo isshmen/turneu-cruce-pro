@@ -100,28 +100,23 @@
             const docRef = doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`);
             const snap = await getDoc(docRef);
             const data = snap.data();
-            
-            // Detectăm ultima fază activă
             let fazaCurentaKey = data.f4 && Object.keys(data.f4).length ? 'f4' : (data.f3 && Object.keys(data.f3).length ? 'f3' : (data.f2 && Object.keys(data.f2).length ? 'f2' : 'f1'));
             let fazaViitoareKey = fazaCurentaKey === 'f1' ? 'f2' : (fazaCurentaKey === 'f2' ? 'f3' : 'f4');
 
-            // Verificare meciuri terminate
             for (const gk in data[fazaCurentaKey]) {
-                if (data[fazaCurentaKey][gk].meciuri.some(m => !m.gata)) return alert(`Grupa ${gk} din ${fazaCurentaKey.toUpperCase()} nu e gata!`);
+                if (data[fazaCurentaKey][gk].meciuri.some(m => !m.gata)) return alert(`Grupa ${gk} incompletă!`);
             }
 
-            // Dacă suntem deja în „Ultima Grupă” (4 jucători), generăm FINALELE
             const nrGrupe = Object.keys(data[fazaCurentaKey]).length;
             const nrParticipantiTotal = Object.values(data[fazaCurentaKey]).reduce((acc, curr) => acc + curr.participanti.length, 0);
 
             if (nrGrupe === 1 && nrParticipantiTotal === 4) {
                 const clasamentFinal = calculeazaClasament(data[fazaCurentaKey]["A"]);
-                const numeCalificati = clasamentFinal.map(c => c.nume); // Ordinea 1, 2, 3, 4
+                const numeCalificati = clasamentFinal.map(c => c.nume);
                 await updateDoc(docRef, { finale: { participanti: numeCalificati, meciuri: creareMeciuri(numeCalificati, "finale") } });
-                return alert("S-au generat FINALELE pe baza clasamentului grupei de 4!");
+                return alert("S-au generat FINALELE!");
             }
 
-            // Altfel, generăm următoarea fază de grupe
             let calificati = [];
             Object.keys(data[fazaCurentaKey]).sort().forEach(gk => {
                 const clas = calculeazaClasament(data[fazaCurentaKey][gk]);
@@ -146,11 +141,11 @@
             const faza = data[state.fazaVizibila];
             const meci = state.fazaVizibila === 'finale' ? faza.meciuri.find(m => m.id === mId) : faza[state.idGrupa].meciuri.find(m => m.id === mId);
             
-            if(userLogat?.email !== ADMIN_EMAIL && userLogat?.displayName !== meci.p1 && userLogat?.displayName !== meci.p2) return alert("Acces refuzat!");
+            if(userLogat?.email !== ADMIN_EMAIL && userLogat?.displayName !== meci.p1 && userLogat?.displayName !== meci.p2) return alert("Acces!");
             
-            const val = prompt(`${meci.p1} vs ${meci.p2} - Introdu scor (ex 2-1):`);
-            if(!val || !val.includes("-")) return;
-            const [s1, s2] = val.split("-").map(Number);
+            const promptVal = prompt(`${meci.p1} vs ${meci.p2} - Introdu scor (ex 2-1):`);
+            if(!promptVal || !promptVal.includes("-")) return;
+            const [s1, s2] = promptVal.split("-").map(Number);
             
             meci[tipScor === 't' ? 's1t' : 's1r'] = s1;
             meci[tipScor === 't' ? 's2t' : 's2r'] = s2;
@@ -167,23 +162,29 @@
             let html = `<div class="max-w-2xl mx-auto p-4">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('acasa')" class="font-black text-3xl cursor-pointer tracking-tighter text-white">CRUCE<span class="${colorClass}">PRO</span></h1>
-                    <div id="auth-ui" class="text-xs font-bold uppercase text-slate-400"></div>
+                    <div id="auth-ui" class="text-xs font-bold uppercase tracking-widest text-slate-500"></div>
                 </nav>
-                <div class="bg-slate-900 p-5 rounded-3xl mb-8 flex gap-4 border border-slate-800 shadow-2xl">
-                    <select onchange="schimbaSetari(this.value, ${state.editie})" class="bg-black text-white text-sm p-3 rounded-xl border border-slate-700 outline-none w-full">
-                        <option value="JOKER" ${state.tipTurneu === 'JOKER' ? 'selected' : ''}>JOKER</option>
-                        <option value="JOLLY" ${state.tipTurneu === 'JOLLY' ? 'selected' : ''}>JOLLY</option>
-                    </select>
-                    <input type="number" value="${state.editie}" onchange="schimbaSetari('${state.tipTurneu}', this.value)" class="w-20 bg-black text-white text-sm p-3 rounded-xl border border-slate-700 text-center">
+                <div class="bg-slate-900 p-5 rounded-3xl mb-8 flex gap-6 items-center border border-slate-800 shadow-2xl">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-black text-slate-500 uppercase">Turneu</label>
+                        <select onchange="schimbaSetari(this.value, ${state.editie})" class="bg-black text-white text-sm p-3 rounded-xl border border-slate-700 outline-none">
+                            <option value="JOKER" ${state.tipTurneu === 'JOKER' ? 'selected' : ''}>JOKER</option>
+                            <option value="JOLLY" ${state.tipTurneu === 'JOLLY' ? 'selected' : ''}>JOLLY</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-black text-slate-500 uppercase">Ediția</label>
+                        <input type="number" value="${state.editie}" onchange="schimbaSetari('${state.tipTurneu}', this.value)" class="w-16 bg-black text-white text-sm p-3 rounded-xl border border-slate-700 outline-none">
+                    </div>
                 </div>`;
 
             if(state.pagina === "acasa") {
                 if(userLogat?.email === ADMIN_EMAIL) {
-                    html += `<div class="bg-slate-900 p-6 rounded-[2rem] border-2 border-dashed border-slate-800 mb-10">
-                        <textarea id="admin-input" class="w-full bg-black border border-slate-800 rounded-2xl p-4 text-sm mb-4 text-blue-400" placeholder="Listă jucători..." rows="2"></textarea>
+                    html += `<div class="bg-slate-900 p-6 rounded-[2rem] border-2 border-dashed border-slate-800 mb-10 shadow-xl">
+                        <textarea id="admin-input" class="w-full bg-black border border-slate-800 rounded-2xl p-4 text-sm mb-4 text-blue-400 outline-none" placeholder="Lipește lista de jucători..." rows="2"></textarea>
                         <div class="grid grid-cols-2 gap-4">
-                            <button onclick="adminGenereazaSezon()" class="bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase">START SEZON</button>
-                            <button onclick="adminGenereazaUrmatoareaFaza()" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">FAZA URMĂTOARE</button>
+                            <button onclick="adminGenereazaSezon()" class="bg-white text-black py-4 rounded-2xl font-black text-xs uppercase">Generare Faza 1</button>
+                            <button onclick="adminGenereazaUrmatoareaFaza()" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-xs uppercase">Faza Următoare / FINALA</button>
                         </div>
                     </div>`;
                 }
@@ -193,14 +194,15 @@
                         html += `<h2 class="text-xs font-black uppercase text-slate-500 mb-4 tracking-[0.3em] mt-10 text-center">— ${f.toUpperCase()} —</h2>
                                  <div class="grid grid-cols-2 gap-4">`;
                         if(f === 'finale') {
-                            html += `<div onclick="nav('grupa', 'FINALE', 'finale')" class="col-span-2 bg-gradient-to-r from-yellow-600 to-amber-800 p-10 rounded-[2rem] text-center cursor-pointer shadow-2xl">
-                                <div class="text-5xl font-black text-white italic">FINALELE</div>
-                                <div class="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-2">Meciuri pentru Trofeu</div>
+                            html += `<div onclick="nav('grupa', 'FINALE', 'finale')" class="col-span-2 bg-gradient-to-br from-yellow-600 to-orange-700 p-10 rounded-[2rem] text-center cursor-pointer shadow-lg transform hover:scale-[1.02] transition-all">
+                                <div class="text-4xl font-black text-white mb-2 italic tracking-tighter">🏆 FINALELE</div>
+                                <div class="text-[10px] font-bold text-white/60 uppercase tracking-widest">Vezi Meciurile Decisive</div>
                             </div>`;
                         } else {
                             Object.keys(data[f]).sort().forEach(gk => {
-                                html += `<div onclick="nav('grupa', '${gk}', '${f}')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all transform hover:scale-[1.02]">
-                                    <div class="text-4xl font-black text-white">Grupa ${gk}</div>
+                                html += `<div onclick="nav('grupa', '${gk}', '${f}')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all transform hover:scale-[1.02] shadow-lg">
+                                    <div class="text-4xl font-black text-white mb-2 italic tracking-tighter">Grupa ${gk}</div>
+                                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Vezi Clasament & Meciuri</div>
                                 </div>`;
                             });
                         }
@@ -211,14 +213,14 @@
                 const isFinale = state.fazaVizibila === 'finale';
                 const g = isFinale ? data.finale : data[state.fazaVizibila][state.idGrupa];
                 
-                html += `<button onclick="nav('acasa')" class="mb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"> ← ÎNAPOI</button>
+                html += `<button onclick="nav('acasa')" class="mb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"> <span class="text-xl">←</span> ÎNAPOI</button>
                          <h2 class="text-6xl font-black mb-10 text-white italic tracking-tighter">${isFinale ? 'FINALE' : 'Grupa ' + state.idGrupa}</h2>`;
 
                 if(!isFinale) {
                     const clasament = calculeazaClasament(g);
-                    html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-slate-800 shadow-2xl">
-                        <table class="w-full text-base text-left">
-                            <tr class="text-slate-600 text-[10px] font-black uppercase"><th class="pb-4">Jucător</th><th class="text-center pb-4">Pct</th><th class="text-right pb-4">Seturi</th></tr>`;
+                    html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-blue-900/30 shadow-2xl">
+                        <table class="w-full text-base">
+                            <tr class="text-slate-600 text-[10px] font-black uppercase"><th class="text-left pb-4">Jucător</th><th class="text-center pb-4">Puncte</th><th class="text-right pb-4">Seturi</th></tr>`;
                     clasament.forEach((c, i) => {
                         const status = i < 2 ? "text-green-500 font-black" : "text-slate-400 font-bold";
                         html += `<tr class="border-t border-slate-800/50"><td class="py-4 ${status} text-lg">${i+1}. ${c.nume}</td><td class="text-center font-black text-xl text-white">${c.puncte}</td><td class="text-right font-mono opacity-40">${c.castigate}-${c.pierdute}</td></tr>`;
@@ -226,28 +228,45 @@
                     html += `</table></div>`;
                 }
 
-                g.meciuri.forEach(m => {
-                    const labelMeci = m.id === "F-MARE" ? "FINALA MARE (Loc 1-2)" : (m.id === "F-MICA" ? "FINALA MICĂ (Loc 3-4)" : `${m.p1} vs ${m.p2}`);
-                    const cardStyle = m.id === "F-MARE" ? "border-yellow-500 bg-yellow-950/20" : "border-slate-800 bg-black/40";
-                    
-                    html += `<div class="p-8 rounded-[2rem] border ${cardStyle} mb-6 shadow-xl text-center">
-                        <div class="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest">${labelMeci}</div>
-                        <div class="text-2xl font-black text-white mb-6">${m.p1} <span class="text-blue-600 mx-4 italic">vs</span> ${m.p2}</div>
-                        <div class="flex justify-center gap-4">
-                            <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-8 py-4 rounded-2xl cursor-pointer transition-all min-w-[120px]">
-                                <div class="text-[9px] font-black opacity-40 mb-1 uppercase">${m.tip === "3/5" ? 'SCOR FINAL' : 'TUR'}</div>
-                                <div class="text-2xl font-black text-white">${m.s1t}:${m.s2t}</div>
+                if(isFinale) {
+                    g.meciuri.forEach(m => {
+                        const isMare = m.id === "F-MARE";
+                        html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border ${isMare ? 'border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.2)]' : 'border-slate-800'} shadow-xl">
+                            <div class="text-center text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest">${isMare ? 'Finala Mare (Loc 1-2)' : 'Finala Mică (Loc 3-4)'}</div>
+                            <div class="text-2xl font-black mb-6 text-white text-center">${m.p1} vs ${m.p2}</div>
+                            <div class="flex justify-center">
+                                <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-8 py-4 rounded-2xl cursor-pointer transition-all flex flex-col items-center min-w-[140px]">
+                                    <span class="text-[9px] font-black opacity-40 mb-1 uppercase text-blue-400">SCOR FINAL (3/5)</span>
+                                    <span class="text-3xl font-black text-white">${m.s1t}:${m.s2t}</span>
+                                </div>
                             </div>
-                            ${m.tip !== "3/5" ? `<div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-8 py-4 rounded-2xl cursor-pointer transition-all min-w-[120px]">
-                                <div class="text-[9px] font-black opacity-40 mb-1 uppercase">RETUR</div>
-                                <div class="text-2xl font-black text-white">${m.s1r}:${m.s2r}</div>
-                            </div>` : ''}
-                        </div>
-                    </div>`;
-                });
+                        </div>`;
+                    });
+                } else {
+                    g.participanti.forEach(juc => {
+                        html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800 shadow-xl">
+                            <div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4 flex justify-between items-center">${juc} <span class="text-[9px] text-slate-600 uppercase tracking-widest">Jucător</span></div>`;
+                        g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
+                            html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5">
+                                <div class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest text-center">${m.p1} vs ${m.p2}</div>
+                                <div class="flex justify-center gap-4">
+                                    <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer transition-all flex flex-col items-center min-w-[110px]">
+                                        <span class="text-[9px] font-black opacity-40 mb-1 uppercase">TUR</span>
+                                        <span class="text-xl font-black text-white">${m.s1t}:${m.s2t}</span>
+                                    </div>
+                                    <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer transition-all flex flex-col items-center min-w-[110px]">
+                                        <span class="text-[9px] font-black opacity-40 mb-1 uppercase">RETUR</span>
+                                        <span class="text-xl font-black text-white">${m.s1r}:${m.s2r}</span>
+                                    </div>
+                                </div>
+                            </div>`;
+                        });
+                        html += `</div>`;
+                    });
+                }
             }
             root.innerHTML = html + `</div>`;
-            document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-40">${userLogat.displayName}</span> <button onclick="logout()" class="text-red-500 ml-2">Logout</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full">Login</button>`;
+            document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-40 mr-2">${userLogat.displayName}</span> <button onclick="logout()" class="text-red-500">Ieșire</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full">Login</button>`;
         }
 
         onAuthStateChanged(auth, user => { userLogat = user; render(); onSnapshot(doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`), () => render()); });
