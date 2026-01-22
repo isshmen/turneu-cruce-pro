@@ -24,7 +24,7 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        const ADMINS = ["isshmen@gmail.com", "alt_admin@gmail.com"];
+        const ADMINS = ["isshmen@gmail.com"];
         let userLogat = null;
         let globalData = { ed_JOKER: 1, ed_JOLLY: 1, inscrisi_JOKER: [], inscrisi_JOLLY: [] };
         let state = { pagina: "home", tip: null, editie: null, idGrupa: null, faza: "f1" };
@@ -122,8 +122,8 @@
             const faza = data[state.faza];
             const meci = state.faza === 'finale' ? faza.meciuri.find(m => m.id === mId) : faza[state.idGrupa].meciuri.find(m => m.id === mId);
             const numeCurat = curataNume(userLogat?.displayName);
-            if(!isAdmin() && numeCurat !== meci.p1 && numeCurat !== meci.p2) return;
-            const val = prompt(`Scor (ex: 3-1):`); if(!val || !val.includes("-")) return;
+            if(!isAdmin() && numeCurat !== meci.p1 && numeCurat !== meci.p2) return alert("Poți edita doar meciurile tale!");
+            const val = prompt(`Scor pentru ${meci.p1} - ${meci.p2} (ex: 3-1):`); if(!val || !val.includes("-")) return;
             const [s1, s2] = val.split("-").map(Number);
             meci[tipScor === 't' ? 's1t' : 's1r'] = s1; meci[tipScor === 't' ? 's2t' : 's2r'] = s2;
             meci.gata = true;
@@ -173,7 +173,6 @@
                 for(let i=1; i < (globalData[`ed_${state.tip}`] || 1); i++) {
                     html += `<div onclick="nav('turneu', '${state.tip}', ${i})" class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all"><div class="text-2xl font-black text-white italic">Ediția ${i}</div></div>`;
                 }
-                if((globalData[`ed_${state.tip}`] || 1) === 1) html += `<div class="col-span-2 text-slate-700 font-black uppercase text-[10px] py-10 text-center">Arhivă goală.</div>`;
                 html += `</div>`;
             } else if(state.pagina === "turneu") {
                 const snap = await getDoc(doc(db, "sezoane", `${state.tip}_${state.editie}`));
@@ -222,7 +221,7 @@
                     html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800"><div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4">${juc}</div>`;
                     g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
                         const sL = state.faza === 'finale' ? '3/5' : 'Scor';
-                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5"><div class="text-[10px] font-black text-slate-500 uppercase mb-3 text-center">${m.p1} vs ${m.p2}</div><div class="flex justify-center gap-4">
+                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5"><div class="text-[10px] font-black text-slate-500 uppercase mb-3 text-center">${m.p1} vs ${m.p2} ${m.gata ? '<span class="text-green-500 ml-2">✓ JUCAT</span>' : ''}</div><div class="flex justify-center gap-4">
                                 <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">TUR (${sL})</span><span class="text-xl font-black text-white">${m.s1t}:${m.s2t}</span></div>
                                 <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">RETUR (${sL})</span><span class="text-xl font-black text-white">${m.s1r}:${m.s2r}</span></div>
                             </div></div>`;
