@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campionat Cruce</title>
+    <title>Campionat Cruce PRO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -24,17 +24,20 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        const ADMIN_EMAIL = "isshmen@gmail.com";
+        const ADMINS = ["isshmen@gmail.com", "alt_admin@gmail.com"];
         let userLogat = null;
         let globalData = { ed_JOKER: 1, ed_JOLLY: 1, inscrisi_JOKER: [], inscrisi_JOLLY: [] };
         let state = { pagina: "home", tip: null, editie: null, idGrupa: null, faza: "f1" };
+
+        const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "";
+        const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
         window.login = () => signInWithPopup(auth, provider);
         window.logout = () => signOut(auth);
         window.nav = (p, t=null, e=null, g=null, f="f1") => { state = {pagina:p, tip:t, editie:e, idGrupa:g, faza:f}; render(); };
 
         window.gestiuneInscriere = async (tip, actiune, numeUser = null) => {
-            const nume = numeUser || userLogat?.displayName;
+            const nume = numeUser || curataNume(userLogat?.displayName);
             if(!nume) return alert("Loghează-te!");
             const ref = doc(db, "setari", "turnee");
             await updateDoc(ref, { [`inscrisi_${tip}`]: actiune === 'add' ? arrayUnion(nume) : arrayRemove(nume) });
@@ -42,7 +45,7 @@
 
         window.adminStartSezon = async (tip, ed) => {
             const inscrisi = globalData[`inscrisi_${tip}`] || [];
-            if(inscrisi.length < 4) return alert("Minim 4 jucători!");
+            if(inscrisi.length < 4) return alert("Minim 4!");
             const amestecati = [...inscrisi].sort(() => Math.random() - 0.5);
             let f1 = {};
             for(let i=0, gIdx=0; i < amestecati.length; gIdx++) {
@@ -69,18 +72,18 @@
 
         const calculeazaClasament = (g) => {
             if (!g) return [];
-            let stats = {};
-            g.participanti.forEach(p => stats[p] = { puncte: 0, castigate: 0, pierdute: 0, nume: p });
+            let st = {};
+            g.participanti.forEach(p => st[p] = { puncte: 0, castigate: 0, pierdute: 0, nume: p });
             g.meciuri.forEach(m => {
                 if(!m.gata) return;
                 [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}].forEach(s => {
-                    stats[m.p1].castigate += s.s1; stats[m.p1].pierdute += s.s2;
-                    stats[m.p2].castigate += s.s2; stats[m.p2].pierdute += s.s1;
-                    if(s.s1 > s.s2) stats[m.p1].puncte += (s.s1 >= 2) ? 2 : 1;
-                    else if(s.s2 > s.s1) stats[m.p2].puncte += (s.s2 >= 2) ? 2 : 1;
+                    st[m.p1].castigate += s.s1; st[m.p1].pierdute += s.s2;
+                    st[m.p2].castigate += s.s2; st[m.p2].pierdute += s.s1;
+                    if(s.s1 > s.s2) st[m.p1].puncte += (s.s1 >= 2) ? 2 : 1;
+                    else if(s.s2 > s.s1) st[m.p2].puncte += (s.s2 >= 2) ? 2 : 1;
                 });
             });
-            return Object.values(stats).sort((a,b) => (b.puncte - a.puncte) || ((b.castigate-b.pierdute)-(a.castigate-a.pierdute)));
+            return Object.values(st).sort((a,b) => (b.puncte - a.puncte) || ((b.castigate-b.pierdute)-(a.castigate-a.pierdute)));
         };
 
         window.adminFazaUrmatoare = async (tip, ed) => {
@@ -118,7 +121,8 @@
             const data = snap.data();
             const faza = data[state.faza];
             const meci = state.faza === 'finale' ? faza.meciuri.find(m => m.id === mId) : faza[state.idGrupa].meciuri.find(m => m.id === mId);
-            if(userLogat?.email !== ADMIN_EMAIL && userLogat?.displayName !== meci.p1 && userLogat?.displayName !== meci.p2) return;
+            const numeCurat = curataNume(userLogat?.displayName);
+            if(!isAdmin() && numeCurat !== meci.p1 && numeCurat !== meci.p2) return;
             const val = prompt(`Scor (ex: 3-1):`); if(!val || !val.includes("-")) return;
             const [s1, s2] = val.split("-").map(Number);
             meci[tipScor === 't' ? 's1t' : 's1r'] = s1; meci[tipScor === 't' ? 's2t' : 's2r'] = s2;
@@ -131,7 +135,7 @@
             let html = `<div class="max-w-2xl mx-auto p-4">
                 <nav class="flex justify-between items-center mb-10 border-b border-slate-800 pb-6">
                     <h1 onclick="nav('home')" class="font-black text-3xl cursor-pointer tracking-tighter text-white">CRUCE<span class="text-blue-500">PRO</span></h1>
-                    <div id="auth-ui" class="text-xs font-bold uppercase"></div>
+                    <div id="auth-ui" class="text-xs font-bold uppercase tracking-widest"></div>
                 </nav>`;
 
             if(state.pagina === "home") {
@@ -143,74 +147,71 @@
                         <div class="grid grid-cols-1 gap-4">
                             <div class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800">
                                 <div class="flex justify-between items-center mb-6">
-                                    <div><div class="text-3xl font-black text-white italic">Ediția ${ed}</div><div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Activă</div></div>
-                                    <button onclick="nav('turneu', '${tip}', ${ed})" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase">Vezi Turneu</button>
+                                    <div><div class="text-3xl font-black text-white italic">Ediția ${ed}</div><div class="text-[10px] text-slate-500 font-bold uppercase">În curs</div></div>
+                                    <button onclick="nav('turneu', '${tip}', ${ed})" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase">Vezi Detalii</button>
                                 </div>
                                 <div class="bg-black/40 p-5 rounded-2xl border border-white/5">
-                                    <div class="flex justify-between items-center mb-4"><span class="text-[10px] font-black uppercase text-slate-400 tracking-tighter">Înscrieri (${inscrisi.length})</span>
+                                    <div class="flex justify-between items-center mb-4"><span class="text-[10px] font-black uppercase text-slate-400">Înscrieri (${inscrisi.length})</span>
                                         <div class="flex gap-2">
-                                            <button onclick="gestiuneInscriere('${tip}', 'rem')" class="bg-slate-800 text-white px-4 py-1 rounded-full text-[9px] font-black uppercase">Ies</button>
-                                            <button onclick="gestiuneInscriere('${tip}', 'add')" class="bg-white text-black px-4 py-1 rounded-full text-[9px] font-black uppercase">Mă înscriu</button>
+                                            <button onclick="gestiuneInscriere('${tip}', 'rem')" class="bg-slate-800 text-white px-4 py-1 rounded-full text-[9px] font-black">Ies</button>
+                                            <button onclick="gestiuneInscriere('${tip}', 'add')" class="bg-white text-black px-4 py-1 rounded-full text-[9px] font-black">Mă înscriu</button>
                                         </div>
                                     </div>
                                     <div class="flex flex-wrap gap-2 text-[10px]">
-                                        ${inscrisi.map(n => `<span class="bg-slate-800 px-3 py-1 rounded-lg text-slate-300 flex items-center gap-2">${n} ${userLogat?.email === ADMIN_EMAIL ? `<b onclick="gestiuneInscriere('${tip}','rem','${n}')" class="text-red-500 cursor-pointer ml-1">X</b>` : ''}</span>`).join('') || "Niciun jucător înscris."}
+                                        ${inscrisi.map(n => `<span class="bg-slate-800 px-3 py-1 rounded-lg text-slate-300 flex items-center gap-2">${n} ${isAdmin() ? `<b onclick="gestiuneInscriere('${tip}','rem','${n}')" class="text-red-500 cursor-pointer ml-1">X</b>` : ''}</span>`).join('') || "Niciun jucător înscris."}
                                     </div>
-                                    ${userLogat?.email === ADMIN_EMAIL ? `<button onclick="adminStartSezon('${tip}', ${ed})" class="w-full mt-6 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase">Start Sezon ${ed}</button>` : ''}
+                                    ${isAdmin() ? `<button onclick="adminStartSezon('${tip}', ${ed})" class="w-full mt-6 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase">Start Sezon ${ed}</button>` : ''}
                                 </div>
                             </div>
-                            <div onclick="nav('arhiva', '${tip}')" class="bg-slate-900/50 p-6 rounded-[1.5rem] border border-slate-800 text-center cursor-pointer hover:bg-slate-800 transition-all text-slate-500 font-black text-[10px] uppercase tracking-widest">Vezi Arhivă ${tip}</div>
+                            <div onclick="nav('arhiva', '${tip}')" class="bg-slate-900/50 p-6 rounded-[1.5rem] border border-slate-800 text-center cursor-pointer hover:bg-slate-800 text-slate-500 font-black text-[10px] uppercase tracking-widest">Arhivă ${tip}</div>
                         </div>
                     </div>`;
                 });
             } else if(state.pagina === "arhiva") {
                 html += `<button onclick="nav('home')" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Acasă</button>
-                <h2 class="text-4xl font-black text-white italic mb-8 italic">Arhiva ${state.tip}</h2><div class="grid grid-cols-2 gap-4">`;
-                const maxEd = globalData[`ed_${state.tip}`] || 1;
-                for(let i=1; i < maxEd; i++) {
+                <h2 class="text-4xl font-black text-white italic mb-8">Arhiva ${state.tip}</h2><div class="grid grid-cols-2 gap-4">`;
+                for(let i=1; i < (globalData[`ed_${state.tip}`] || 1); i++) {
                     html += `<div onclick="nav('turneu', '${state.tip}', ${i})" class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all"><div class="text-2xl font-black text-white italic">Ediția ${i}</div></div>`;
                 }
-                if(maxEd === 1) html += `<div class="col-span-2 text-slate-700 font-black uppercase text-[10px] py-10 text-center tracking-widest">Nicio ediție încheiată.</div>`;
+                if((globalData[`ed_${state.tip}`] || 1) === 1) html += `<div class="col-span-2 text-slate-700 font-black uppercase text-[10px] py-10 text-center">Arhivă goală.</div>`;
                 html += `</div>`;
             } else if(state.pagina === "turneu") {
                 const snap = await getDoc(doc(db, "sezoane", `${state.tip}_${state.editie}`));
                 const data = snap.data();
-                const fMare = data?.finale?.meciuri?.find(m => m.id === "F-MARE");
-                const esteGataEditia = fMare && fMare.gata;
+                const esteGata = data?.finale?.meciuri?.find(m => m.id === "F-MARE")?.gata;
                 html += `<button onclick="nav('home')" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Acasă</button>
                 <div class="flex justify-between items-end mb-10"><h2 class="text-5xl font-black text-white italic tracking-tighter">${state.tip} <span class="text-blue-500">ed.${state.editie}</span></h2>
-                ${(userLogat?.email === ADMIN_EMAIL && esteGataEditia) ? `<button onclick="adminInchideEd('${state.tip}')" class="bg-red-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">Închide Ediția</button>` : ''}</div>`;
+                ${(isAdmin() && esteGata) ? `<button onclick="adminInchideEd('${state.tip}')" class="bg-red-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">Închide Ediția</button>` : ''}</div>`;
                 if(data) {
-                    if(userLogat?.email === ADMIN_EMAIL && !esteGataEditia) html += `<button onclick="adminFazaUrmatoare('${state.tip}', ${state.editie})" class="w-full mb-8 bg-white text-black py-4 rounded-2xl font-black uppercase text-xs">Generează Faza Următoare</button>`;
+                    if(isAdmin() && !esteGata) html += `<button onclick="adminFazaUrmatoare('${state.tip}', ${state.editie})" class="w-full mb-8 bg-white text-black py-4 rounded-2xl font-black uppercase text-xs">Următoarea Fază</button>`;
                     ["f1", "f2", "f3", "f4", "finale"].forEach(f => {
                         if(!data[f] || (f !== 'finale' && Object.keys(data[f]).length === 0) || (f === 'finale' && !data[f].meciuri)) return;
+                        const labelFaza = f === 'finale' ? 'FINALE' : 'FAZA ' + f.substring(1);
                         if(f === 'finale') {
                             const st = calculeazaClasament(data.finale);
-                            html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, 'FINALE', 'finale')" class="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 text-center cursor-pointer mb-6 transform hover:scale-[1.01] transition-all shadow-2xl">
-                                <div class="text-4xl font-black text-white italic tracking-tighter mb-4 italic tracking-widest">FINALELE</div>
+                            html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, 'FINALE', 'finale')" class="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 text-center cursor-pointer mb-6 shadow-2xl"><div class="text-4xl font-black text-white italic tracking-widest mb-4">FINALELE</div>
                                 <div class="grid grid-cols-3 gap-2">
-                                    <div class="bg-black/40 p-3 rounded-xl border border-yellow-500/20"><div class="text-[7px] font-black text-yellow-500 uppercase">Campion</div><div class="text-[10px] font-bold text-white truncate">${st[0]?.nume || '-'}</div></div>
+                                    <div class="bg-black/40 p-3 rounded-xl border border-yellow-500/20"><div class="text-[7px] font-black text-yellow-500 uppercase">Loc 1</div><div class="text-[10px] font-bold text-white truncate">${st[0]?.nume || '-'}</div></div>
                                     <div class="bg-black/40 p-3 rounded-xl border border-slate-400/20"><div class="text-[7px] font-black text-slate-400 uppercase">Loc 2</div><div class="text-[10px] font-bold text-white truncate">${st[1]?.nume || '-'}</div></div>
                                     <div class="bg-black/40 p-3 rounded-xl border border-orange-800/20"><div class="text-[7px] font-black text-orange-800 uppercase">Loc 3</div><div class="text-[10px] font-bold text-white truncate">${st[2]?.nume || '-'}</div></div>
-                                </div>
-                            </div>`;
+                                </div></div>`;
                         } else {
                             html += `<div class="grid grid-cols-2 gap-4 mb-8">`;
                             Object.keys(data[f]).sort().forEach(gk => {
                                 html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, '${gk}', '${f}')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all shadow-lg">
-                                    <div class="text-[10px] font-black text-slate-500 uppercase mb-1">${f}</div><div class="text-3xl font-black text-white italic">Grupa ${gk}</div>
+                                    <div class="text-[10px] font-black text-slate-500 uppercase mb-1">${labelFaza}</div><div class="text-3xl font-black text-white italic">Grupa ${gk}</div>
                                 </div>`;
                             });
                             html += `</div>`;
                         }
                     });
-                } else { html += `<div class="text-center py-20 text-slate-700 font-black uppercase text-[10px] tracking-[0.3em]">Turneul nu a început încă.</div>`; }
+                } else { html += `<div class="text-center py-20 text-slate-700 font-black uppercase text-[10px] tracking-[0.3em]">Ediția nu a început încă.</div>`; }
             } else if(state.pagina === "grupa") {
                 const snap = await getDoc(doc(db, "sezoane", `${state.tip}_${state.editie}`));
-                const data = snap.data();
-                const g = state.faza === 'finale' ? data.finale : data[state.faza][state.idGrupa];
+                const d = snap.data();
+                const g = state.faza === 'finale' ? d.finale : d[state.faza][state.idGrupa];
                 html += `<button onclick="nav('turneu', '${state.tip}', ${state.editie})" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Înapoi</button>
-                <h2 class="text-6xl font-black text-white italic mb-10 tracking-tighter">${state.idGrupa}</h2>`;
+                <h2 class="text-6xl font-black text-white italic mb-10 tracking-tighter">${state.faza === 'finale' ? 'FINALELE' : 'Grupa ' + state.idGrupa}</h2>`;
                 if(state.faza !== 'finale') {
                     const c = calculeazaClasament(g);
                     html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-slate-800"><table class="w-full text-left"><tr class="text-[9px] font-black uppercase text-slate-600 border-b border-slate-800"><th class="pb-4">Jucător</th><th class="pb-4 text-center">Pct</th><th class="pb-4 text-right">Set</th></tr>
@@ -221,7 +222,7 @@
                     html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800"><div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4">${juc}</div>`;
                     g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
                         const sL = state.faza === 'finale' ? '3/5' : 'Scor';
-                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5"><div class="text-[10px] font-black text-slate-500 uppercase mb-3 text-center tracking-tighter">${m.p1} vs ${m.p2}</div><div class="flex justify-center gap-4">
+                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5"><div class="text-[10px] font-black text-slate-500 uppercase mb-3 text-center">${m.p1} vs ${m.p2}</div><div class="flex justify-center gap-4">
                                 <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">TUR (${sL})</span><span class="text-xl font-black text-white">${m.s1t}:${m.s2t}</span></div>
                                 <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">RETUR (${sL})</span><span class="text-xl font-black text-white">${m.s1r}:${m.s2r}</span></div>
                             </div></div>`;
@@ -230,7 +231,7 @@
                 });
             }
             root.innerHTML = html + `</div>`;
-            document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-40 mr-2 text-[10px] font-black">${userLogat.displayName}</span><button onclick="logout()" class="text-red-500 font-black">Ieșire</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full font-black">Login</button>`;
+            document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-30 mr-2 text-[10px] font-black">${curataNume(userLogat.displayName)}</span><button onclick="logout()" class="text-red-500 font-black">Ieșire</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full font-black">Login</button>`;
         }
         
         onAuthStateChanged(auth, u => { 
