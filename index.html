@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campionat Cruce PRO</title>
+    <title>Campionat Cruce</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
@@ -71,7 +71,7 @@
             g.participanti.forEach(p => stats[p] = { puncte: 0, castigate: 0, pierdute: 0, nume: p });
             g.meciuri.forEach(m => {
                 if(!m.gata) return;
-                const seturi = m.tip === "3/5" ? [{s1: m.s1t, s2: m.s2t}] : [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}];
+                const seturi = [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}];
                 seturi.forEach(s => {
                     stats[m.p1].castigate += s.s1; stats[m.p1].pierdute += s.s2;
                     stats[m.p2].castigate += s.s2; stats[m.p2].pierdute += s.s1;
@@ -126,10 +126,10 @@
             await updateDoc(docRef, { [fazaViitoareKey]: nouaFaza });
         };
 
-        window.adminInchideEditia = async () => {
-            if(!confirm("Sigur închizi ediția?")) return;
-            await deleteDoc(doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`));
+        window.adminInchideEditia = () => {
+            if(!confirm("Închizi ediția curentă? Vei putea reveni la ea din selectorul de ediții.")) return;
             state.editie++;
+            state.pagina = "acasa";
             render();
         };
 
@@ -179,7 +179,7 @@
                             <button onclick="adminGenereazaSezon()" class="bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase">Start Sezon</button>
                             <button onclick="adminGenereazaUrmatoareaFaza()" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Faza Următoare</button>
                         </div>
-                        ${data?.finale?.meciuri?.find(m => m.id === "F-MARE" && m.gata) ? `<button onclick="adminInchideEditia()" class="w-full mt-4 bg-red-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Închide Ediția</button>` : ''}
+                        ${data?.finale?.meciuri?.find(m => m.id === "F-MARE" && m.gata) ? `<button onclick="adminInchideEditia()" class="w-full mt-4 bg-red-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Închide Ediția & Salvează</button>` : ''}
                     </div>`;
                 }
                 if(data) {
@@ -187,34 +187,17 @@
                         if(!data[f] || (f !== 'finale' && Object.keys(data[f]).length === 0) || (f === 'finale' && !data[f].meciuri)) return;
                         html += `<h2 class="text-xs font-black uppercase text-slate-500 mb-4 tracking-[0.3em] mt-10 text-center">${f.toUpperCase()}</h2>`;
                         if(f === 'finale') {
-                            const fMare = data.finale.meciuri.find(m => m.id === "F-MARE");
-                            const fMica = data.finale.meciuri.find(m => m.id === "F-MICA");
+                            const stats = calculeazaClasament(data.finale);
                             html += `<div onclick="nav('grupa', 'FINALE', 'finale')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all transform hover:scale-[1.01] shadow-lg mb-6">
                                 <div class="text-5xl font-black text-white italic tracking-tighter">FINALELE</div>
-                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">Meciurile pentru Trofeu</div>
+                                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">Meciuri Tur/Retur</div>
                             </div>`;
-                            if(fMare.gata || fMica.gata) {
-                                html += `<div class="grid grid-cols-3 gap-3 mb-10">`;
-                                if(fMare.gata) {
-                                    const campion = fMare.s1t > fMare.s2t ? fMare.p1 : fMare.p2;
-                                    const loc2 = fMare.s1t > fMare.s2t ? fMare.p2 : fMare.p1;
-                                    html += `<div class="bg-slate-900 border border-yellow-500/30 p-4 rounded-2xl text-center shadow-xl">
-                                        <div class="text-[8px] font-black text-yellow-500 uppercase mb-1 tracking-tighter">Campion</div>
-                                        <div class="text-sm font-black text-white truncate px-1">${campion}</div>
-                                    </div>`;
-                                    html += `<div class="bg-slate-900 border border-slate-400/30 p-4 rounded-2xl text-center shadow-xl">
-                                        <div class="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-tighter">Locul 2</div>
-                                        <div class="text-sm font-black text-white truncate px-1">${loc2}</div>
-                                    </div>`;
-                                }
-                                if(fMica.gata) {
-                                    const loc3 = fMica.s1t > fMica.s2t ? fMica.p1 : fMica.p2;
-                                    html += `<div class="bg-slate-900 border border-orange-800/30 p-4 rounded-2xl text-center shadow-xl">
-                                        <div class="text-[8px] font-black text-orange-800 uppercase mb-1 tracking-tighter">Locul 3</div>
-                                        <div class="text-sm font-black text-white truncate px-1">${loc3}</div>
-                                    </div>`;
-                                }
-                                html += `</div>`;
+                            if(data.finale.meciuri.some(m => m.gata)) {
+                                html += `<div class="grid grid-cols-3 gap-3 mb-10">
+                                    <div class="bg-slate-900 border border-yellow-500/30 p-4 rounded-2xl text-center"><div class="text-[8px] font-black text-yellow-500 uppercase">Campion</div><div class="text-sm font-black text-white truncate">${stats[0]?.nume || '-'}</div></div>
+                                    <div class="bg-slate-900 border border-slate-400/30 p-4 rounded-2xl text-center"><div class="text-[8px] font-black text-slate-400 uppercase">Locul 2</div><div class="text-sm font-black text-white truncate">${stats[1]?.nume || '-'}</div></div>
+                                    <div class="bg-slate-900 border border-orange-800/30 p-4 rounded-2xl text-center"><div class="text-[8px] font-black text-orange-800 uppercase">Locul 3</div><div class="text-sm font-black text-white truncate">${stats[2]?.nume || '-'}</div></div>
+                                </div>`;
                             }
                         } else {
                             html += `<div class="grid grid-cols-2 gap-4">`;
@@ -232,41 +215,21 @@
                 const g = isFinale ? data.finale : data[state.fazaVizibila][state.idGrupa];
                 html += `<button onclick="nav('acasa')" class="mb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"> ← ÎNAPOI</button>
                          <h2 class="text-6xl font-black mb-10 text-white italic tracking-tighter">${isFinale ? 'FINALE' : 'Grupa ' + state.idGrupa}</h2>`;
-                if(!isFinale) {
-                    const clasament = calculeazaClasament(g);
-                    html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-slate-800 shadow-2xl"><table class="w-full">
-                        <tr class="text-slate-600 text-[10px] font-black uppercase"><th class="text-left pb-4">Jucător</th><th class="text-center pb-4">Puncte</th><th class="text-right pb-4">Seturi</th></tr>`;
-                    clasament.forEach((c, i) => {
-                        const status = i < 2 ? "text-green-500 font-black" : "text-slate-400 font-bold";
-                        html += `<tr class="border-t border-slate-800/50"><td class="py-4 ${status} text-lg">${i+1}. ${c.nume}</td><td class="text-center font-black text-xl text-white">${c.puncte}</td><td class="text-right font-mono opacity-40">${c.castigate}-${c.pierdute}</td></tr>`;
+                
+                g.participanti.forEach(juc => {
+                    html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800 shadow-xl">
+                        <div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4">${juc}</div>`;
+                    g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
+                        const labelScor = isFinale ? "3/5" : "Scor";
+                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5">
+                            <div class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest text-center">${m.p1} vs ${m.p2}</div>
+                            <div class="flex justify-center gap-4">
+                                <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">Tur (${labelScor})</span><span class="text-xl font-black text-white">${m.s1t}:${m.s2t}</span></div>
+                                <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">Retur (${labelScor})</span><span class="text-xl font-black text-white">${m.s1r}:${m.s2r}</span></div>
+                            </div></div>`;
                     });
-                    html += `</table></div>`;
-                }
-                if(isFinale) {
-                    g.meciuri.forEach(m => {
-                        const isMare = m.id === "F-MARE";
-                        html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800 shadow-xl">
-                            <div class="text-center text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest">${isMare ? 'Finala Mare' : 'Finala Mică'}</div>
-                            <div class="text-2xl font-black mb-6 text-white text-center">${m.p1} vs ${m.p2}</div>
-                            <div class="flex justify-center"><div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-8 py-4 rounded-2xl cursor-pointer transition-all flex flex-col items-center">
-                                <span class="text-[9px] font-black opacity-40 mb-1 uppercase">Scor Final (3/5)</span><span class="text-3xl font-black text-white">${m.s1t}:${m.s2t}</span>
-                            </div></div></div>`;
-                    });
-                } else {
-                    g.participanti.forEach(juc => {
-                        html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800 shadow-xl">
-                            <div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4">${juc}</div>`;
-                        g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
-                            html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5">
-                                <div class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest text-center">${m.p1} vs ${m.p2}</div>
-                                <div class="flex justify-center gap-4">
-                                    <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">Tur</span><span class="text-xl font-black text-white">${m.s1t}:${m.s2t}</span></div>
-                                    <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">Retur</span><span class="text-xl font-black text-white">${m.s1r}:${m.s2r}</span></div>
-                                </div></div>`;
-                        });
-                        html += `</div>`;
-                    });
-                }
+                    html += `</div>`;
+                });
             }
             root.innerHTML = html + `</div>`;
             document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-40 mr-2 text-[10px]">${userLogat.displayName}</span> <button onclick="logout()" class="text-red-500 font-black">Ieșire</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full font-black">Login</button>`;
