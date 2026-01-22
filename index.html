@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campionat Cruce PRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
+            authDomain: "turneu-cruce.firebaseapp.com",
+            projectId: "turneu-cruce",
+            storageBucket: "turneu-cruce.firebasestorage.app",
+            messagingSenderId: "169022341825",
+            appId: "1:169022341825:web:53678e9ce275654bfe4a40"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        const ADMIN_EMAIL = "isshmen@gmail.com";
+        let userLogat = null;
+
+        let state = {
+            tipTurneu: "JOKER", 
+            editie: 1,
+            pagina: "acasa",
+            idGrupa: null,
+            fazaVizibila: "f1"
+        };
+
+        window.login = () => signInWithPopup(auth, provider);
+        window.logout = () => signOut(auth);
+
+        window.schimbaSetari = (tip, ed) => {
+            state.tipTurneu = tip;
+            state.editie = parseInt(ed);
+            state.pagina = "acasa";
+            render();
+        };
+
+        window.nav = (pagina, idGrupa = null, faza = "f1") => {
+            state.pagina = pagina;
+            state.idGrupa = idGrupa;
+            state.fazaVizibila = faza;
+            render();
+        };
+
+        const creareMeciuri = (lista, tipMeci = "standard") => {
+            const m = [];
+            if(tipMeci === "finale") {
+                m.push({ id: "F-MICA", p1: lista[2], p2: lista[3], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false, tip: "3/5" });
+                m.push({ id: "F-MARE", p1: lista[0], p2: lista[1], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false, tip: "3/5" });
+            } else {
+                for(let i=0; i<lista.length; i++) 
+                    for(let j=i+1; j<lista.length; j++) 
+                        m.push({ id: "M-" + Math.random().toString(36).substr(2, 5).toUpperCase(), p1: lista[i], p2: lista[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+            }
+            return m;
+        };
+
+        const calculeazaClasament = (g) => {
+            if (!g) return [];
+            let stats = {};
+            g.participanti.forEach(p => stats[p] = { puncte: 0, castigate: 0, pierdute: 0, nume: p });
+            g.meciuri.forEach(m => {
+                if(!m.gata) return;
+                const seturi = m.tip === "3/5" ? [{s1: m.s1t, s2: m.s2t}] : [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}];
+                seturi.forEach(s => {
+                    stats[m.p1].castigate += s.s1; stats[m.p1].pierdute += s.s2;
+                    stats[m.p2].castigate += s.s2; stats[m.p2].pierdute += s.s1;
+                    if(s.s1 > s.s2) stats[m.p1].puncte += (s.s1 === 2 && s.s2 === 0) ? 2 : 1;
+                    else if(s.s2 > s.s1) stats[m.p2].puncte += (s.s2 === 2 && s.s1 === 0) ? 2 : 1;
+                });
+            });
+            return Object.values(stats).sort((a,b) => (b.puncte - a.puncte) || ((b.castigate - b.pierdute) - (a.castigate - a.pierdute)));
+        };
+
+        window.adminGenereazaSezon = async () => {
+            const txt = document.getElementById('admin-input').value;
+            const lista = txt.split('\n').map(n => n.trim()).filter(n => n);
+            if(lista.length < 4) return alert("Minim 4 jucători!");
+            const amestecati = lista.sort(() => Math.random() - 0.5);
+            let f1 = {};
+            for(let i=0, gIdx=0; i < amestecati.length; gIdx++) {
+                let dim = (amestecati.length - i === 5) ? 5 : 4;
+                f1[String.fromCharCode(65 + gIdx)] = { participanti: amestecati.slice(i, i+dim), meciuri: creareMeciuri(amestecati.slice(i, i+dim)) };
+                i += dim;
+            }
+            await setDoc(doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`), { f1, f2: {}, f3: {}, f4: {}, finale: {} });
+        };
+
+        window.adminGenereazaUrmatoareaFaza = async () => {
+            const docRef = doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`);
+            const snap = await getDoc(docRef);
+            const data = snap.data();
+            
+            // Detectăm ultima fază activă
+            let fazaCurentaKey = data.f4 && Object.keys(data.f4).length ? 'f4' : (data.f3 && Object.keys(data.f3).length ? 'f3' : (data.f2 && Object.keys(data.f2).length ? 'f2' : 'f1'));
+            let fazaViitoareKey = fazaCurentaKey === 'f1' ? 'f2' : (fazaCurentaKey === 'f2' ? 'f3' : 'f4');
+
+            // Verificare meciuri terminate
+            for (const gk in data[fazaCurentaKey]) {
+                if (data[fazaCurentaKey][gk].meciuri.some(m => !m.gata)) return alert(`Grupa ${gk} din ${fazaCurentaKey.toUpperCase()} nu e gata!`);
+            }
+
+            // Dacă suntem deja în „Ultima Grupă” (4 jucători), generăm FINALELE
+            const nrGrupe = Object.keys(data[fazaCurentaKey]).length;
+            const nrParticipantiTotal = Object.values(data[fazaCurentaKey]).reduce((acc, curr) => acc + curr.participanti.length, 0);
+
+            if (nrGrupe === 1 && nrParticipantiTotal === 4) {
+                const clasamentFinal = calculeazaClasament(data[fazaCurentaKey]["A"]);
+                const numeCalificati = clasamentFinal.map(c => c.nume); // Ordinea 1, 2, 3, 4
+                await updateDoc(docRef, { finale: { participanti: numeCalificati, meciuri: creareMeciuri(numeCalificati, "finale") } });
+                return alert("S-au generat FINALELE pe baza clasamentului grupei de 4!");
+            }
+
+            // Altfel, generăm următoarea fază de grupe
+            let calificati = [];
+            Object.keys(data[fazaCurentaKey]).sort().forEach(gk => {
+                const clas = calculeazaClasament(data[fazaCurentaKey][gk]);
+                calificati.push(clas[0].nume, clas[1].nume);
+            });
+
+            let nouaFaza = {};
+            const amestecati = calificati.sort(() => Math.random() - 0.5);
+            for(let i=0, gIdx=0; i < amestecati.length; gIdx++) {
+                let dim = (amestecati.length - i <= 5) ? amestecati.length - i : 4;
+                nouaFaza[String.fromCharCode(65 + gIdx)] = { participanti: amestecati.slice(i, i+dim), meciuri: creareMeciuri(amestecati.slice(i, i+dim)) };
+                i += dim;
+            }
+            await updateDoc(docRef, { [fazaViitoareKey]: nouaFaza });
+            alert(`S-a generat ${fazaViitoareKey.toUpperCase()}!`);
+        };
+
+        window.updateScor = async (mId, tipScor) => {
+            const docRef = doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`);
+            const snap = await getDoc(docRef);
+            const data = snap.data();
+            const faza = data[state.fazaVizibila];
+            const meci = state.fazaVizibila === 'finale' ? faza.meciuri.find(m => m.id === mId) : faza[state.idGrupa].meciuri.find(m => m.id === mId);
+            
+            if(userLogat?.email !== ADMIN_EMAIL && userLogat?.displayName !== meci.p1 && userLogat?.displayName !== meci.p2) return alert("Acces refuzat!");
+            
+            const val = prompt(`${meci.p1} vs ${meci.p2} - Introdu scor (ex 2-1):`);
+            if(!val || !val.includes("-")) return;
+            const [s1, s2] = val.split("-").map(Number);
+            
+            meci[tipScor === 't' ? 's1t' : 's1r'] = s1;
+            meci[tipScor === 't' ? 's2t' : 's2r'] = s2;
+            meci.gata = true;
+            await updateDoc(docRef, { [state.fazaVizibila]: faza });
+        };
+
+        async function render() {
+            const root = document.getElementById('app');
+            const snap = await getDoc(doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`));
+            const data = snap.exists() ? snap.data() : null;
+            const colorClass = state.tipTurneu === "JOKER" ? "text-blue-500" : "text-green-500";
+
+            let html = `<div class="max-w-2xl mx-auto p-4">
+                <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+                    <h1 onclick="nav('acasa')" class="font-black text-3xl cursor-pointer tracking-tighter text-white">CRUCE<span class="${colorClass}">PRO</span></h1>
+                    <div id="auth-ui" class="text-xs font-bold uppercase text-slate-400"></div>
+                </nav>
+                <div class="bg-slate-900 p-5 rounded-3xl mb-8 flex gap-4 border border-slate-800 shadow-2xl">
+                    <select onchange="schimbaSetari(this.value, ${state.editie})" class="bg-black text-white text-sm p-3 rounded-xl border border-slate-700 outline-none w-full">
+                        <option value="JOKER" ${state.tipTurneu === 'JOKER' ? 'selected' : ''}>JOKER</option>
+                        <option value="JOLLY" ${state.tipTurneu === 'JOLLY' ? 'selected' : ''}>JOLLY</option>
+                    </select>
+                    <input type="number" value="${state.editie}" onchange="schimbaSetari('${state.tipTurneu}', this.value)" class="w-20 bg-black text-white text-sm p-3 rounded-xl border border-slate-700 text-center">
+                </div>`;
+
+            if(state.pagina === "acasa") {
+                if(userLogat?.email === ADMIN_EMAIL) {
+                    html += `<div class="bg-slate-900 p-6 rounded-[2rem] border-2 border-dashed border-slate-800 mb-10">
+                        <textarea id="admin-input" class="w-full bg-black border border-slate-800 rounded-2xl p-4 text-sm mb-4 text-blue-400" placeholder="Listă jucători..." rows="2"></textarea>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="adminGenereazaSezon()" class="bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase">START SEZON</button>
+                            <button onclick="adminGenereazaUrmatoareaFaza()" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">FAZA URMĂTOARE</button>
+                        </div>
+                    </div>`;
+                }
+                if(data) {
+                    ["f1", "f2", "f3", "f4", "finale"].forEach(f => {
+                        if(!data[f] || (f !== 'finale' && Object.keys(data[f]).length === 0) || (f === 'finale' && !data[f].meciuri)) return;
+                        html += `<h2 class="text-xs font-black uppercase text-slate-500 mb-4 tracking-[0.3em] mt-10 text-center">— ${f.toUpperCase()} —</h2>
+                                 <div class="grid grid-cols-2 gap-4">`;
+                        if(f === 'finale') {
+                            html += `<div onclick="nav('grupa', 'FINALE', 'finale')" class="col-span-2 bg-gradient-to-r from-yellow-600 to-amber-800 p-10 rounded-[2rem] text-center cursor-pointer shadow-2xl">
+                                <div class="text-5xl font-black text-white italic">FINALELE</div>
+                                <div class="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-2">Meciuri pentru Trofeu</div>
+                            </div>`;
+                        } else {
+                            Object.keys(data[f]).sort().forEach(gk => {
+                                html += `<div onclick="nav('grupa', '${gk}', '${f}')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all transform hover:scale-[1.02]">
+                                    <div class="text-4xl font-black text-white">Grupa ${gk}</div>
+                                </div>`;
+                            });
+                        }
+                        html += `</div>`;
+                    });
+                }
+            } else if(state.pagina === "grupa") {
+                const isFinale = state.fazaVizibila === 'finale';
+                const g = isFinale ? data.finale : data[state.fazaVizibila][state.idGrupa];
+                
+                html += `<button onclick="nav('acasa')" class="mb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"> ← ÎNAPOI</button>
+                         <h2 class="text-6xl font-black mb-10 text-white italic tracking-tighter">${isFinale ? 'FINALE' : 'Grupa ' + state.idGrupa}</h2>`;
+
+                if(!isFinale) {
+                    const clasament = calculeazaClasament(g);
+                    html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-slate-800 shadow-2xl">
+                        <table class="w-full text-base text-left">
+                            <tr class="text-slate-600 text-[10px] font-black uppercase"><th class="pb-4">Jucător</th><th class="text-center pb-4">Pct</th><th class="text-right pb-4">Seturi</th></tr>`;
+                    clasament.forEach((c, i) => {
+                        const status = i < 2 ? "text-green-500 font-black" : "text-slate-400 font-bold";
+                        html += `<tr class="border-t border-slate-800/50"><td class="py-4 ${status} text-lg">${i+1}. ${c.nume}</td><td class="text-center font-black text-xl text-white">${c.puncte}</td><td class="text-right font-mono opacity-40">${c.castigate}-${c.pierdute}</td></tr>`;
+                    });
+                    html += `</table></div>`;
+                }
+
+                g.meciuri.forEach(m => {
+                    const labelMeci = m.id === "F-MARE" ? "FINALA MARE (Loc 1-2)" : (m.id === "F-MICA" ? "FINALA MICĂ (Loc 3-4)" : `${m.p1} vs ${m.p2}`);
+                    const cardStyle = m.id === "F-MARE" ? "border-yellow-500 bg-yellow-950/20" : "border-slate-800 bg-black/40";
+                    
+                    html += `<div class="p-8 rounded-[2rem] border ${cardStyle} mb-6 shadow-xl text-center">
+                        <div class="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest">${labelMeci}</div>
+                        <div class="text-2xl font-black text-white mb-6">${m.p1} <span class="text-blue-600 mx-4 italic">vs</span> ${m.p2}</div>
+                        <div class="flex justify-center gap-4">
+                            <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-8 py-4 rounded-2xl cursor-pointer transition-all min-w-[120px]">
+                                <div class="text-[9px] font-black opacity-40 mb-1 uppercase">${m.tip === "3/5" ? 'SCOR FINAL' : 'TUR'}</div>
+                                <div class="text-2xl font-black text-white">${m.s1t}:${m.s2t}</div>
+                            </div>
+                            ${m.tip !== "3/5" ? `<div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-8 py-4 rounded-2xl cursor-pointer transition-all min-w-[120px]">
+                                <div class="text-[9px] font-black opacity-40 mb-1 uppercase">RETUR</div>
+                                <div class="text-2xl font-black text-white">${m.s1r}:${m.s2r}</div>
+                            </div>` : ''}
+                        </div>
+                    </div>`;
+                });
+            }
+            root.innerHTML = html + `</div>`;
+            document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-40">${userLogat.displayName}</span> <button onclick="logout()" class="text-red-500 ml-2">Logout</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full">Login</button>`;
+        }
+
+        onAuthStateChanged(auth, user => { userLogat = user; render(); onSnapshot(doc(db, "sezoane", `${state.tipTurneu}_${state.editie}`), () => render()); });
+    </script>
+</head>
+<body class="bg-black text-slate-300 font-sans pb-24"><div id="app"></div></body>
+</html>
