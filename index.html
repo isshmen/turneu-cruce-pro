@@ -70,19 +70,38 @@
             await updateDoc(ref, { [`inscrisi_${tip}`]: actiune === 'add' ? arrayUnion(nume) : arrayRemove(nume) });
         };
 
-        window.adminStartSezon = async (tip, ed) => {
-            const inscrisi = globalData[`inscrisi_${tip}`] || [];
-            if(inscrisi.length < 4) return alert("Minim 4!");
-            const amestecati = [...inscrisi].sort(() => Math.random() - 0.5);
-            let f1 = {};
-            for(let i=0, gIdx=0; i < amestecati.length; gIdx++) {
-                let dim = (amestecati.length - i === 5) ? 5 : 4;
-                f1[String.fromCharCode(65 + gIdx)] = { participanti: amestecati.slice(i, i+dim), meciuri: creareMeciuri(amestecati.slice(i, i+dim)) };
-                i += dim;
-            }
-            await setDoc(doc(db, "sezoane", `${tip}_${ed}`), { f1, f2: {}, f3: {}, f4: {}, finale: {} });
-            await updateDoc(doc(db, "setari", "turnee"), { [`inscrisi_${tip}`]: [] });
+       window.adminStartSezon = async (tip, ed) => {
+    const inscrisi = globalData[`inscrisi_${tip}`] || [];
+    if(inscrisi.length < 4) return alert("Minim 4!");
+    
+    const jucatori = [...inscrisi].sort(() => Math.random() - 0.5);
+    const n = jucatori.length;
+    
+    // Calculăm câte grupe de 4 și câte de 5 sunt necesare
+    // Formula: restul împărțirii (n % 4) ne spune câte grupe de 5 avem
+    const nrGrupe5 = n % 4; 
+    const nrGrupe4 = Math.floor((n - (nrGrupe5 * 5)) / 4);
+    const totalGrupe = nrGrupe5 + nrGrupe4;
+
+    let f1 = {};
+    let cursor = 0;
+
+    for(let i = 0; i < totalGrupe; i++) {
+        // Primele grupe primesc 5 jucători, restul 4
+        let dimensiune = (i < nrGrupe5) ? 5 : 4;
+        let numeGrupa = String.fromCharCode(65 + i);
+        let participantiGrupa = jucatori.slice(cursor, cursor + dimensiune);
+        
+        f1[numeGrupa] = { 
+            participanti: participantiGrupa, 
+            meciuri: creareMeciuri(participantiGrupa) 
         };
+        cursor += dimensiune;
+    }
+
+    await setDoc(doc(db, "sezoane", `${tip}_${ed}`), { f1, f2: {}, f3: {}, f4: {}, finale: {} });
+    await updateDoc(doc(db, "setari", "turnee"), { [`inscrisi_${tip}`]: [] });
+};
 
         const creareMeciuri = (lista, tipMeci = "standard") => {
             const m = [];
@@ -113,29 +132,50 @@
             return Object.values(st).sort((a,b) => (b.puncte - a.puncte) || ((b.castigate-b.pierdute)-(a.castigate-a.pierdute)));
         };
 
-        window.adminFazaUrmatoare = async (tip, ed) => {
-            const docRef = doc(db, "sezoane", `${tip}_${ed}`);
-            const snap = await getDoc(docRef);
-            const data = snap.data();
-            let curK = data.f4 && Object.keys(data.f4).length ? 'f4' : (data.f3 && Object.keys(data.f3).length ? 'f3' : (data.f2 && Object.keys(data.f2).length ? 'f2' : 'f1'));
-            let nextK = curK === 'f1' ? 'f2' : (curK === 'f2' ? 'f3' : 'f4');
-            const totalP = Object.values(data[curK]).reduce((a, b) => a + b.participanti.length, 0);
-            if (Object.keys(data[curK]).length === 1 && totalP === 4) {
-                const c = calculeazaClasament(data[curK]["A"]);
-                await updateDoc(docRef, { finale: { participanti: c.map(x=>x.nume), meciuri: creareMeciuri(c.map(x=>x.nume), "finale") } });
-                return;
-            }
-            let calif = [];
-            Object.keys(data[curK]).sort().forEach(k => { const c = calculeazaClasament(data[curK][k]); calif.push(c[0].nume, c[1].nume); });
-            let nf = {}; const amest = calif.sort(() => Math.random() - 0.5);
-            for(let i=0, gIdx=0; i < amest.length; gIdx++) {
-                let dim = (amest.length - i <= 5) ? amest.length - i : 4;
-                nf[String.fromCharCode(65 + gIdx)] = { participanti: amest.slice(i, i+dim), meciuri: creareMeciuri(amest.slice(i, i+dim)) };
-                i += dim;
-            }
-            await updateDoc(docRef, { [nextK]: nf });
-        };
+      window.adminFazaUrmatoare = async (tip, ed) => {
+    const docRef = doc(db, "sezoane", `${tip}_${ed}`);
+    const snap = await getDoc(docRef);
+    const data = snap.data();
+    
+    let curK = data.f4 && Object.keys(data.f4).length ? 'f4' : (data.f3 && Object.keys(data.f3).length ? 'f3' : (data.f2 && Object.keys(data.f2).length ? 'f2' : 'f1'));
+    let nextK = curK === 'f1' ? 'f2' : (curK === 'f2' ? 'f3' : 'f4');
 
+    let calif = [];
+    Object.keys(data[curK]).sort().forEach(k => { 
+        const c = calculeazaClasament(data[curK][k]); 
+        if(c[0]) calif.push(c[0].nume); 
+        if(c[1]) calif.push(c[1].nume); 
+    });
+
+    // Verificăm dacă am ajuns la finală (4 jucători rămași)
+    if (calif.length <= 4) {
+        await updateDoc(docRef, { finale: { participanti: calif, meciuri: creareMeciuri(calif, "finale") } });
+        return;
+    }
+
+    const jucatori = calif.sort(() => Math.random() - 0.5);
+    const n = jucatori.length;
+    const nrGrupe5 = n % 4; 
+    const nrGrupe4 = Math.floor((n - (nrGrupe5 * 5)) / 4);
+    const totalGrupe = nrGrupe5 + nrGrupe4;
+
+    let nf = {};
+    let cursor = 0;
+
+    for(let i = 0; i < totalGrupe; i++) {
+        let dimensiune = (i < nrGrupe5) ? 5 : 4;
+        let numeGrupa = String.fromCharCode(65 + i);
+        let participantiGrupa = jucatori.slice(cursor, cursor + dimensiune);
+        
+        nf[numeGrupa] = { 
+            participanti: participantiGrupa, 
+            meciuri: creareMeciuri(participantiGrupa) 
+        };
+        cursor += dimensiune;
+    }
+
+    await updateDoc(docRef, { [nextK]: nf });
+};
         window.adminInchideEd = async (tip) => {
             const ref = doc(db, "setari", "turnee");
             await updateDoc(ref, { [`ed_${tip}`]: (globalData[`ed_${tip}`] || 1) + 1 });
@@ -305,6 +345,7 @@
 </head>
 <body class="bg-black text-slate-300 font-sans pb-24"><div id="app"></div></body>
 </html>
+
 
 
 
