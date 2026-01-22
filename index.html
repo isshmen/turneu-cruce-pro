@@ -117,20 +117,35 @@
         };
 
         const calculeazaClasament = (g) => {
-            if (!g) return [];
-            let st = {};
-            g.participanti.forEach(p => st[p] = { puncte: 0, castigate: 0, pierdute: 0, nume: p });
-            g.meciuri.forEach(m => {
-                if(!m.gata) return;
-                [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}].forEach(s => {
-                    st[m.p1].castigate += s.s1; st[m.p1].pierdute += s.s2;
-                    st[m.p2].castigate += s.s2; st[m.p2].pierdute += s.s1;
-                    if(s.s1 > s.s2) st[m.p1].puncte += (s.s1 >= 2) ? 2 : 1;
-                    else if(s.s2 > s.s1) st[m.p2].puncte += (s.s2 >= 2) ? 2 : 1;
-                });
-            });
-            return Object.values(st).sort((a,b) => (b.puncte - a.puncte) || ((b.castigate-b.pierdute)-(a.castigate-a.pierdute)));
-        };
+    if (!g) return [];
+    let st = {};
+    g.participanti.forEach(p => st[p] = { puncte: 0, castigate: 0, pierdute: 0, nume: p });
+    
+    g.meciuri.forEach(m => {
+        if(!m.gata) return;
+        // Procesăm atât Turul (t) cât și Returul (r)
+        [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}].forEach(s => {
+            // Actualizăm seturile (golaverajul)
+            st[m.p1].castigate += s.s1; st[m.p1].pierdute += s.s2;
+            st[m.p2].castigate += s.s2; st[m.p2].pierdute += s.s1;
+
+            // Logica nouă de punctaj:
+            if(s.s1 > s.s2) {
+                // Jucătorul 1 câștigă
+                st[m.p1].puncte += (s.s1 === 2 && s.s2 === 0) ? 2 : 1;
+            } else if(s.s2 > s.s1) {
+                // Jucătorul 2 câștigă
+                st[m.p2].puncte += (s.s2 === 2 && s.s1 === 0) ? 2 : 1;
+            }
+        });
+    });
+    
+    // Sortare: Puncte descrescător, apoi Diferență Seturi
+    return Object.values(st).sort((a,b) => 
+        (b.puncte - a.puncte) || 
+        ((b.castigate - b.pierdute) - (a.castigate - a.pierdute))
+    );
+};
 
       window.adminFazaUrmatoare = async (tip, ed) => {
     const docRef = doc(db, "sezoane", `${tip}_${ed}`);
@@ -345,6 +360,7 @@
 </head>
 <body class="bg-black text-slate-300 font-sans pb-24"><div id="app"></div></body>
 </html>
+
 
 
 
