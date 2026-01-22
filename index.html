@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -27,18 +27,45 @@
         const ADMINS = ["isshmen@gmail.com"];
         let userLogat = null;
         let globalData = { ed_JOKER: 1, ed_JOLLY: 1, inscrisi_JOKER: [], inscrisi_JOLLY: [] };
-        let state = { pagina: "home", tip: null, editie: null, idGrupa: null, faza: "f1" };
+        let state = { pagina: "home", tip: null, editie: null, idGrupa: null, faza: "f1", authTab: "login" };
 
         const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "";
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
-        window.login = () => signInWithPopup(auth, provider);
+        window.nav = (p, t=null, e=null, g=null, f="f1") => { state = { ...state, pagina:p, tip:t, editie:e, idGrupa:g, faza:f }; render(); };
+        window.setAuthTab = (tab) => { state.authTab = tab; render(); };
+
+        window.handleEmailAuth = async (e) => {
+            e.preventDefault();
+            const email = e.target.email.value;
+            const pass = e.target.password.value;
+            const nume = e.target.nume ? e.target.nume.value : null;
+            try {
+                if (state.authTab === 'register') {
+                    const res = await createUserWithEmailAndPassword(auth, email, pass);
+                    await updateProfile(res.user, { displayName: nume });
+                } else {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                }
+                nav('home');
+            } catch (err) { alert(err.message); }
+        };
+
+        window.loginGoogle = () => signInWithPopup(auth, provider);
         window.logout = () => signOut(auth);
-        window.nav = (p, t=null, e=null, g=null, f="f1") => { state = {pagina:p, tip:t, editie:e, idGrupa:g, faza:f}; render(); };
+
+        window.schimbaNume = async () => {
+            const nou = prompt("Introdu numele tău real (ex: Nicolae Popa):", userLogat.displayName);
+            if (nou) {
+                await updateProfile(auth.currentUser, { displayName: nou });
+                alert("Nume actualizat!");
+                location.reload();
+            }
+        };
 
         window.gestiuneInscriere = async (tip, actiune, numeUser = null) => {
             const nume = numeUser || curataNume(userLogat?.displayName);
-            if(!nume) return alert("Loghează-te!");
+            if(!nume) return alert("Completează numele în profil!");
             const ref = doc(db, "setari", "turnee");
             await updateDoc(ref, { [`inscrisi_${tip}`]: actiune === 'add' ? arrayUnion(nume) : arrayRemove(nume) });
         };
@@ -122,8 +149,8 @@
             const faza = data[state.faza];
             const meci = state.faza === 'finale' ? faza.meciuri.find(m => m.id === mId) : faza[state.idGrupa].meciuri.find(m => m.id === mId);
             const numeCurat = curataNume(userLogat?.displayName);
-            if(!isAdmin() && numeCurat !== meci.p1 && numeCurat !== meci.p2) return alert("Poți edita doar meciurile tale!");
-            const val = prompt(`Scor pentru ${meci.p1} - ${meci.p2} (ex: 3-1):`); if(!val || !val.includes("-")) return;
+            if(!isAdmin() && numeCurat !== meci.p1 && numeCurat !== meci.p2) return alert("Doar jucătorii din meci pot edita!");
+            const val = prompt(`Scor ${meci.p1}-${meci.p2}:`); if(!val || !val.includes("-")) return;
             const [s1, s2] = val.split("-").map(Number);
             meci[tipScor === 't' ? 's1t' : 's1r'] = s1; meci[tipScor === 't' ? 's2t' : 's2r'] = s2;
             meci.gata = true;
@@ -138,7 +165,25 @@
                     <div id="auth-ui" class="text-xs font-bold uppercase tracking-widest"></div>
                 </nav>`;
 
-            if(state.pagina === "home") {
+            if(!userLogat) {
+                html += `<div class="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 max-w-sm mx-auto">
+                    <div class="flex gap-4 mb-8">
+                        <button onclick="setAuthTab('login')" class="flex-1 pb-2 border-b-2 ${state.authTab === 'login' ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'} font-black uppercase text-xs">Login</button>
+                        <button onclick="setAuthTab('register')" class="flex-1 pb-2 border-b-2 ${state.authTab === 'register' ? 'border-blue-500 text-white' : 'border-transparent text-slate-500'} font-black uppercase text-xs">Cont Nou</button>
+                    </div>
+                    <form onsubmit="handleEmailAuth(event)" class="space-y-4">
+                        ${state.authTab === 'register' ? '<input type="text" name="nume" placeholder="Nume Complet (ex: Nicolae Popa)" class="w-full bg-black border border-slate-800 p-4 rounded-xl text-white text-sm" required>' : ''}
+                        <input type="email" name="email" placeholder="Email" class="w-full bg-black border border-slate-800 p-4 rounded-xl text-white text-sm" required>
+                        <input type="password" name="password" placeholder="Parola" class="w-full bg-black border border-slate-800 p-4 rounded-xl text-white text-sm" required>
+                        <button class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase text-xs">${state.authTab === 'login' ? 'Intră în cont' : 'Creează Cont'}</button>
+                    </form>
+                    <div class="mt-6 pt-6 border-t border-slate-800">
+                        <button onclick="loginGoogle()" class="w-full bg-white text-black py-4 rounded-xl font-black uppercase text-xs flex items-center justify-center gap-2">
+                            <img src="https://www.google.com/favicon.ico" class="w-4 h-4"> Google Login
+                        </button>
+                    </div>
+                </div>`;
+            } else if(state.pagina === "home") {
                 ["JOKER", "JOLLY"].forEach(tip => {
                     const ed = globalData[`ed_${tip}`] || 1;
                     const inscrisi = globalData[`inscrisi_${tip}`] || [];
@@ -204,13 +249,13 @@
                             html += `</div>`;
                         }
                     });
-                } else { html += `<div class="text-center py-20 text-slate-700 font-black uppercase text-[10px] tracking-[0.3em]">Ediția nu a început încă.</div>`; }
+                } else { html += `<div class="text-center py-20 text-slate-700 font-black uppercase text-[10px]">Ediția nu a început încă.</div>`; }
             } else if(state.pagina === "grupa") {
                 const snap = await getDoc(doc(db, "sezoane", `${state.tip}_${state.editie}`));
                 const d = snap.data();
                 const g = state.faza === 'finale' ? d.finale : d[state.faza][state.idGrupa];
                 html += `<button onclick="nav('turneu', '${state.tip}', ${state.editie})" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Înapoi</button>
-                <h2 class="text-6xl font-black text-white italic mb-10 tracking-tighter">${state.faza === 'finale' ? 'FINALELE' : 'Grupa ' + state.idGrupa}</h2>`;
+                <h2 class="text-6xl font-black text-white italic mb-10 tracking-tighter">${state.faza === 'finale' ? 'FINALE' : 'Grupa ' + state.idGrupa}</h2>`;
                 if(state.faza !== 'finale') {
                     const c = calculeazaClasament(g);
                     html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-slate-800"><table class="w-full text-left"><tr class="text-[9px] font-black uppercase text-slate-600 border-b border-slate-800"><th class="pb-4">Jucător</th><th class="pb-4 text-center">Pct</th><th class="pb-4 text-right">Set</th></tr>
@@ -221,16 +266,16 @@
                     html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800"><div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4">${juc}</div>`;
                     g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
                         const sL = state.faza === 'finale' ? '3/5' : 'Scor';
-                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5"><div class="text-[10px] font-black text-slate-500 uppercase mb-3 text-center">${m.p1} vs ${m.p2} ${m.gata ? '<span class="text-green-500 ml-2">✓ JUCAT</span>' : ''}</div><div class="flex justify-center gap-4">
-                                <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">TUR (${sL})</span><span class="text-xl font-black text-white">${m.s1t}:${m.s2t}</span></div>
-                                <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-6 py-3 rounded-xl cursor-pointer min-w-[110px] flex flex-col items-center"><span class="text-[9px] opacity-40 uppercase">RETUR (${sL})</span><span class="text-xl font-black text-white">${m.s1r}:${m.s2r}</span></div>
+                        html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5 flex justify-between items-center"><div class="text-[10px] font-black text-slate-500 uppercase">${m.p1} vs ${m.p2}</div><div class="flex gap-4">
+                                <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-4 py-2 rounded-xl cursor-pointer min-w-[70px] text-center"><span class="block text-[7px] opacity-40 uppercase">T</span><span class="text-lg font-black text-white">${m.s1t}:${m.s2t}</span></div>
+                                <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-4 py-2 rounded-xl cursor-pointer min-w-[70px] text-center"><span class="block text-[7px] opacity-40 uppercase">R</span><span class="text-lg font-black text-white">${m.s1r}:${m.s2r}</span></div>
                             </div></div>`;
                     });
                     html += `</div>`;
                 });
             }
             root.innerHTML = html + `</div>`;
-            document.getElementById('auth-ui').innerHTML = userLogat ? `<span class="opacity-30 mr-2 text-[10px] font-black">${curataNume(userLogat.displayName)}</span><button onclick="logout()" class="text-red-500 font-black">Ieșire</button>` : `<button onclick="login()" class="bg-white text-black px-4 py-1 rounded-full font-black">Login</button>`;
+            document.getElementById('auth-ui').innerHTML = userLogat ? `<span onclick="schimbaNume()" class="opacity-50 mr-2 text-[10px] font-black cursor-pointer hover:text-white">${curataNume(userLogat.displayName)}</span><button onclick="logout()" class="text-red-500 font-black">Ieșire</button>` : '';
         }
         
         onAuthStateChanged(auth, u => { 
