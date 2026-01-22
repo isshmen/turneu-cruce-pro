@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campionat Cruce PRO</title>
+    <title>Campionate Cruce</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -161,7 +161,7 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4">
                 <nav class="flex justify-between items-center mb-10 border-b border-slate-800 pb-6">
-                    <h1 onclick="nav('home')" class="font-black text-3xl cursor-pointer tracking-tighter text-white">CRUCE<span class="text-blue-500">PRO</span></h1>
+                    <h1 onclick="nav('home')" class="font-black text-3xl cursor-pointer tracking-tighter text-white">Turnee<span class="text-blue-500"> Cruce</span></h1>
                     <div id="auth-ui" class="text-xs font-bold uppercase tracking-widest"></div>
                 </nav>`;
 
@@ -274,6 +274,16 @@
                     html += `</div>`;
                 });
             }
+
+html += `
+            <footer class="mt-20 py-10 border-t border-slate-900 text-center">
+                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                    Copyright © 2026 • Creat de 
+                    <a href="https://www.facebook.com/isshmenn" class="text-blue-500 hover:text-white transition-colors">Vali Dragomir</a>
+                </p>
+            </footer>`;
+
+            
             root.innerHTML = html + `</div>`;
             document.getElementById('auth-ui').innerHTML = userLogat ? `<span onclick="schimbaNume()" class="opacity-50 mr-2 text-[10px] font-black cursor-pointer hover:text-white">${curataNume(userLogat.displayName)}</span><button onclick="logout()" class="text-red-500 font-black">Ieșire</button>` : '';
         }
@@ -286,3 +296,4 @@
 </head>
 <body class="bg-black text-slate-300 font-sans pb-24"><div id="app"></div></body>
 </html>
+
