@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Joker Championship</title>
-    <button onclick="initSistem()" class="bg-red-500 text-white p-2">INITIALIZARE</button>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -55,23 +54,30 @@
             p1, p2, s1t: 0, s2t: 0, s1r: 0, s2r: 0, s1_3: 0, s2_3: 0, s1_4: 0, s2_4: 0, s1_5: 0, s2_5: 0, gata: false, tip
         });
 
-        window.adminStartSezon = async (mod) => {
+        window.adminImportJucatori = async () => {
+            const lista = prompt("Introdu lista de nume separate prin virgula:");
+            if(!lista) return;
+            const numeArray = lista.split(",").map(n => n.trim()).filter(n => n.length > 0);
+            await updateDoc(doc(db, "setari", "turnee"), { "inscrisi_JOKER": arrayUnion(...numeArray) });
+        };
+
+        window.adminStartSezon = async () => {
             const ed = globalData.ed_JOKER || 1;
             const inscrisi = globalData.inscrisi_JOKER || [];
             let f1 = {};
-            const pRandom = mod === 'manual' ? inscrisi : [...inscrisi].sort(() => Math.random() - 0.5);
-            let cursor = 0;
-            const nrGrupe = Math.ceil(pRandom.length / 4);
-            for(let i=0; i < nrGrupe; i++) {
-                let p = mod === 'manual' ? inscrisi.filter(n => state.manualGrupe[n] === String.fromCharCode(65+i)) : pRandom.slice(cursor, cursor + (pRandom.length % 4 > i ? 5 : 4));
-                if(p.length === 0) continue;
-                let gk = String.fromCharCode(65 + i);
-                f1[gk] = { participanti: p, meciuri: [] };
-                for(let x=0; x<p.length; x++) for(let y=x+1; y<p.length; y++) f1[gk].meciuri.push(generareCardMeci(p[x], p[y]));
-                cursor += p.length;
-            }
+            const grupeUnice = [...new Set(Object.values(state.manualGrupe))].sort();
+            
+            grupeUnice.forEach(gk => {
+                const p = inscrisi.filter(n => state.manualGrupe[n] === gk);
+                if(p.length > 0) {
+                    f1[gk] = { participanti: p, meciuri: [] };
+                    for(let i=0; i<p.length; i++) for(let j=i+1; j<p.length; j++) f1[gk].meciuri.push(generareCardMeci(p[i], p[j]));
+                }
+            });
+
             await setDoc(doc(db, "sezoane", `JOKER_${ed}`), { f1, f2: null, optimi: null, semi: null, finale: null, status: 'activ' });
             await updateDoc(doc(db, "setari", "turnee"), { "inscrisi_JOKER": [] });
+            state.manualGrupe = {};
         };
 
         window.adminFazaUrmatoare = async () => {
@@ -125,87 +131,79 @@
             await updateDoc(doc(db, "sezoane", `JOKER_${ed}`), data);
         };
 
+        window.atribuiGrupaManual = (n, v) => { state.manualGrupe[n] = v; render(); };
+        window.gestiuneInscriere = async (a) => { await updateDoc(doc(db, "setari", "turnee"), { "inscrisi_JOKER": a === 'add' ? arrayUnion(curataNume(userLogat.displayName)) : arrayRemove(curataNume(userLogat.displayName)) }); };
+        window.loginGoogle = () => signInWithPopup(auth, provider);
+        window.logout = () => signOut(auth);
+
         async function render() {
             const root = document.getElementById('app');
             const ed = globalData.ed_JOKER || 1;
             const snap = await getDoc(doc(db, "sezoane", `JOKER_${ed}`));
             const curSezon = snap.exists() ? snap.data() : null;
 
-            let html = `<div class="max-w-2xl mx-auto p-4"><nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4"><h1 onclick="nav('home')" class="font-black text-2xl text-white italic uppercase">Joker <span class="text-blue-500">Ed.${ed}</span></h1><div id="auth-ui"></div></nav>`;
+            let html = `<div class="max-w-2xl mx-auto p-4"><nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4"><h1 onclick="nav('home')" class="font-black text-2xl text-white italic uppercase tracking-tighter">Joker <span class="text-blue-500">#${ed}</span></h1><div id="auth-ui"></div></nav>`;
 
             if(!userLogat) {
                 html += `<button onclick="loginGoogle()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-sm">Autentificare Google</button>`;
             } else if(state.pagina === "home") {
                 if(!curSezon || curSezon.status !== 'activ') {
                     const inscrisi = globalData.inscrisi_JOKER || [];
-                    html += `<div class="bg-slate-900 p-6 rounded-3xl border border-slate-800"><div class="flex justify-between mb-6 items-center"><span class="font-black uppercase text-xs text-slate-500">Inscrisi (${inscrisi.length})</span><button onclick="gestiuneInscriere('add')" class="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase">Ma inscriu</button></div>
-                        <div class="flex flex-wrap gap-2 mb-8">${inscrisi.map(n => `<span class="bg-black/50 border border-white/5 p-2 rounded-lg text-xs font-bold">${n}</span>`).join('')}</div>
+                    html += `<div class="bg-slate-900 p-6 rounded-3xl border border-slate-800"><div class="flex justify-between mb-6 items-center"><span class="font-black uppercase text-[10px] text-slate-500">Inscrisi (${inscrisi.length})</span>
+                        <div class="flex gap-2">
+                            <button onclick="gestiuneInscriere('rem')" class="bg-slate-800 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Ies</button>
+                            <button onclick="gestiuneInscriere('add')" class="bg-white text-black px-3 py-1 rounded-lg text-[10px] font-black uppercase">Ma inscriu</button>
+                        </div></div>
+                        <div class="flex flex-wrap gap-2 mb-8">${inscrisi.map(n => `<span class="bg-black/50 border border-white/5 p-2 rounded-lg text-[10px] font-bold">${n}</span>`).join('')}</div>
                         ${isAdmin() ? `<div class="space-y-3 pt-4 border-t border-slate-800">
-                        <div class="bg-black/20 p-4 rounded-xl space-y-2">${inscrisi.map(n => `<div class="flex justify-between text-xs"><span>${n}</span><select onchange="atribuiGrupaManual('${n}', this.value)" class="bg-slate-800 rounded px-1"><option value="">-</option>${['A','B','C','D','E','F','G','H'].map(l => `<option value="${l}">${l}</option>`).join('')}</select></div>`).join('')}</div>
-                        <button onclick="adminStartSezon('manual')" class="w-full bg-green-600 py-4 rounded-2xl font-black uppercase text-xs">Porneste Turneul</button></div>` : ''}</div>`;
+                        <button onclick="adminImportJucatori()" class="w-full bg-slate-800 py-3 rounded-xl font-black uppercase text-[10px]">Importa Lista</button>
+                        <div class="bg-black/20 p-4 rounded-xl space-y-2">${inscrisi.map(n => `<div class="flex justify-between text-xs"><span>${n}</span><select onchange="atribuiGrupaManual('${n}', this.value)" class="bg-slate-800 rounded px-1"><option value="">-</option>${['A','B','C','D','E','F','G','H'].map(l => `<option value="${l}" ${state.manualGrupe[n]===l?'selected':''}>${l}</option>`).join('')}</select></div>`).join('')}</div>
+                        <button onclick="adminStartSezon()" class="w-full bg-green-600 py-4 rounded-2xl font-black uppercase text-xs">Porneste Turneul</button></div>` : ''}</div>`;
                 } else {
-                    const fazeInfo = { f1: "Faza Grupelor", f2: "16-imi (Tur-Retur)", optimi: "Optimi de Finala", semi: "Semifinale", finale: "Marea Finala" };
+                    const fazeInfo = { f1: "Faza Grupelor", f2: "16-imi (Tur-Retur)", optimi: "Optimi (Random)", semi: "Semifinale", finale: "Marea Finala" };
                     ["f1", "f2", "optimi", "semi", "finale"].forEach(f => {
                         if(!curSezon[f]) return;
-                        html += `<div class="mb-10"><div class="flex items-center gap-3 mb-4"><div class="h-px bg-slate-800 flex-1"></div><h3 class="text-blue-500 font-black uppercase text-[10px] tracking-widest">${fazeInfo[f]}</h3><div class="h-px bg-slate-800 flex-1"></div></div>`;
-                        html += `<div class="grid grid-cols-2 gap-3">`;
+                        html += `<div class="mb-10"><h3 class="text-blue-500 font-black uppercase text-[10px] mb-4 text-center tracking-widest">${fazeInfo[f]}</h3><div class="grid grid-cols-2 gap-3">`;
                         if(f === 'f1') {
                             Object.keys(curSezon.f1).sort().forEach(gk => { html += `<div onclick="nav('grupa', '${gk}', 'f1')" class="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-center cursor-pointer font-black italic">Grupa ${gk}</div>`; });
                         } else if(f === 'finale') {
-                            html += `<div onclick="nav('grupa', 'FINALE', 'finale')" class="col-span-2 bg-gradient-to-br from-blue-600 to-indigo-900 p-8 rounded-3xl text-center font-black text-xl italic border border-blue-400/30 shadow-2xl shadow-blue-500/10 uppercase">Vezi Finalele</div>`;
+                            html += `<div onclick="nav('grupa', 'FINALE', 'finale')" class="col-span-2 bg-gradient-to-r from-blue-700 to-indigo-900 p-6 rounded-2xl text-center font-black uppercase italic">Vezi Finalele</div>`;
                         } else {
-                            html += `<div onclick="nav('grupa', '${f}', '${f}')" class="col-span-2 bg-slate-900/50 p-5 rounded-2xl text-center font-black uppercase text-[11px] border border-slate-800 tracking-tighter">Vezi Meciuri ${fazeInfo[f]}</div>`;
+                            html += `<div onclick="nav('grupa', '${f}', '${f}')" class="col-span-2 bg-slate-900 p-4 rounded-2xl text-center font-black uppercase text-[10px] border border-slate-800">Vezi Meciuri Eliminatorii</div>`;
                         }
                         html += `</div></div>`;
                     });
-                    if(isAdmin()) html += `<button onclick="adminFazaUrmatoare()" class="w-full bg-white text-black py-4 rounded-2xl font-black uppercase text-xs shadow-xl mb-12">Genereaza Faza Urmatoare</button>`;
+                    if(isAdmin()) html += `<button onclick="adminFazaUrmatoare()" class="w-full bg-white text-black py-4 rounded-2xl font-black uppercase text-xs mb-8">Urmatoarea Faza</button>`;
                 }
             } else if(state.pagina === "grupa") {
-                html += `<button onclick="nav('home')" class="text-[10px] font-black text-slate-500 mb-6 uppercase tracking-widest">← Inapoi la tablou</button>`;
+                html += `<button onclick="nav('home')" class="text-[10px] font-black text-slate-500 mb-6 uppercase tracking-widest">← Inapoi</button>`;
                 if(state.faza === 'f1') {
                     const g = curSezon.f1[state.idGrupa];
                     const c = calculeazaClasament(g);
-                    html += `<div class="bg-slate-900 p-5 rounded-3xl mb-8 border border-slate-800"><table class="w-full text-xs font-bold"><tr class="text-slate-500 text-[9px] uppercase"><th class="text-left pb-4">Jucator</th><th class="text-center pb-4">Pct</th><th class="text-center pb-4">R</th><th class="text-right pb-4">P</th></tr>
+                    html += `<div class="bg-slate-900 p-4 rounded-2xl mb-6 border border-slate-800"><table class="w-full text-xs font-bold"><tr class="text-slate-500 text-[9px] uppercase"><th class="text-left pb-4">Nume</th><th class="text-center pb-4">Pct</th><th class="text-center pb-4">R</th><th class="text-right pb-4">P</th></tr>
                         ${c.map(x => `<tr class="border-t border-slate-800/50"><td class="py-3 uppercase italic">${x.nume}</td><td class="text-center text-blue-500">${x.puncte}</td><td class="text-center">${x.realizate}</td><td class="text-right text-slate-500">${x.pierdute}</td></tr>`).join('')}</table></div>`;
                     g.meciuri.forEach(m => {
-                        html += `<div class="bg-slate-900/40 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5"><span class="text-xs font-black uppercase italic">${m.p1} vs ${m.p2}</span>
-                            <div class="flex gap-2"><button onclick="updateScorMeci('f1','${m.id}','t')" class="bg-black border border-slate-800 px-3 py-2 rounded-xl text-xs font-black min-w-[50px]">${m.s1t}-${m.s2t}</button>
-                            <button onclick="updateScorMeci('f1','${m.id}','r')" class="bg-black border border-slate-800 px-3 py-2 rounded-xl text-xs font-black min-w-[50px]">${m.s1r}-${m.s2r}</button></div></div>`;
+                        html += `<div class="bg-slate-900/40 p-4 rounded-xl mb-2 flex justify-between items-center border border-white/5"><span class="text-[10px] font-black uppercase italic">${m.p1} vs ${m.p2}</span>
+                            <div class="flex gap-2"><button onclick="updateScorMeci('f1','${m.id}','t')" class="bg-black border border-slate-800 px-3 py-1 rounded-lg text-xs font-black">${m.s1t}-${m.s2t}</button>
+                            <button onclick="updateScorMeci('f1','${m.id}','r')" class="bg-black border border-slate-800 px-3 py-1 rounded-lg text-xs font-black">${m.s1r}-${m.s2r}</button></div></div>`;
                     });
                 } else {
                     const meciuri = state.faza === 'finale' ? [curSezon.finale.mare, curSezon.finale.mica] : curSezon[state.faza].meciuri;
                     meciuri.forEach((m, idx) => {
-                        const titlu = state.faza === 'finale' ? (idx === 0 ? "Finala Mare (1-2)" : "Finala Mica (3-4)") : `Meciul ${idx + 1}`;
-                        html += `<div class="bg-slate-900 p-6 rounded-3xl mb-6 border border-slate-800"><div class="text-[10px] text-blue-500 font-black uppercase mb-4 text-center">${titlu}</div>
-                            <div class="text-center font-black text-lg mb-6 italic uppercase tracking-tighter">${m.p1} <span class="text-slate-600 px-2 text-sm">vs</span> ${m.p2}</div>
-                            <div class="flex flex-wrap justify-center gap-2">${['t','r','_3','_4','_5'].slice(0, m.tip === "3/5" ? 5 : 2).map(s => `
-                                <button onclick="updateScorMeci('${state.faza}','${m.id}','${s}', ${idx===0 && state.faza==='finale'})" class="bg-black border border-slate-700 p-3 rounded-xl text-xs font-black min-w-[60px] hover:border-blue-500">${m['s1'+s]}-${m['s2'+s]}</button>
+                        const is35 = m.tip === "3/5";
+                        html += `<div class="bg-slate-900 p-6 rounded-3xl mb-4 border border-slate-800"><div class="text-center font-black text-sm mb-4 uppercase tracking-tighter">${m.p1} vs ${m.p2}</div>
+                            <div class="flex flex-wrap justify-center gap-2">${['t','r','_3','_4','_5'].slice(0, is35 ? 5 : 2).map(s => `
+                                <button onclick="updateScorMeci('${state.faza}','${m.id}','${s}', ${idx===0 && state.faza==='finale'})" class="bg-black border border-slate-800 p-3 rounded-xl text-xs font-black min-w-[55px]">${m['s1'+s]}-${m['s2'+s]}</button>
                             `).join('')}</div></div>`;
                     });
                 }
             }
             root.innerHTML = html + `</div>`;
-            document.getElementById('auth-ui').innerHTML = userLogat ? `<button onclick="logout()" class="text-slate-500 font-black text-[10px] uppercase">Iesire</button>` : '';
+            document.getElementById('auth-ui').innerHTML = userLogat ? `<button onclick="logout()" class="text-slate-500 font-black text-[10px] uppercase">Logout</button>` : '';
         }
 
-        window.atribuiGrupaManual = (n, v) => { state.manualGrupe[n] = v; };
-        window.gestiuneInscriere = async (a) => { await updateDoc(doc(db, "setari", "turnee"), { "inscrisi_JOKER": a === 'add' ? arrayUnion(curataNume(userLogat.displayName)) : arrayRemove(curataNume(userLogat.displayName)) }); };
-        window.loginGoogle = () => signInWithPopup(auth, provider);
-        window.logout = () => signOut(auth);
         onAuthStateChanged(auth, u => { userLogat = u; onSnapshot(doc(db, "setari", "turnee"), s => { if(s.exists()) { globalData = s.data(); render(); }}); });
-
-        
-        window.initSistem = async () => {
-    await setDoc(doc(db, "setari", "turnee"), { 
-        ed_JOKER: 1, 
-        inscrisi_JOKER: [] 
-    });
-    alert("Sistem Initializat! Acum poți vedea înscrierile.");
-    location.reload();
-};
-        
     </script>
 </head>
-<body class="bg-black text-slate-300 font-sans tracking-tight"><div id="app"></div></body>
+<body class="bg-black text-slate-300 font-sans"><div id="app"></div></body>
 </html>
-
