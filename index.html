@@ -89,27 +89,26 @@
             
             let f1 = {};
             if(mod === 'manual') {
-                const grupeUnice = [...new Set(Object.values(state.manualGrupe))].sort();
+                const grupeAtribuite = Object.values(state.manualGrupe);
+                if(grupeAtribuite.length === 0) return alert("Nu ai atribuit nicio grupă manual!");
+                const grupeUnice = [...new Set(grupeAtribuite)].sort();
                 grupeUnice.forEach(gKey => {
                     const p = inscrisi.filter(n => state.manualGrupe[n] === gKey);
-                    f1[gKey] = { participanti: p, meciuri: creareMeciuri(p) };
+                    if(p.length > 0) f1[gKey] = { participanti: p, meciuri: creareMeciuri(p) };
                 });
             } else {
                 const jucatori = [...inscrisi].sort(() => Math.random() - 0.5);
                 const n = jucatori.length;
-                const nrGrupe5 = n % 4; 
-                const nrGrupe4 = Math.floor((n - (nrGrupe5 * 5)) / 4);
-                const totalGrupe = nrGrupe5 + nrGrupe4;
+                const nrG5 = n % 4; const nrG4 = Math.floor((n - (nrG5 * 5)) / 4);
                 let cursor = 0;
-                for(let i = 0; i < totalGrupe; i++) {
-                    let dimensiune = (i < nrGrupe5) ? 5 : 4;
+                for(let i = 0; i < (nrG5 + nrG4); i++) {
+                    let dim = (i < nrG5) ? 5 : 4;
                     let numeG = String.fromCharCode(65 + i);
-                    let p = jucatori.slice(cursor, cursor + dimensiune);
+                    let p = jucatori.slice(cursor, cursor + dim);
                     f1[numeG] = { participanti: p, meciuri: creareMeciuri(p) };
-                    cursor += dimensiune;
+                    cursor += dim;
                 }
             }
-
             await setDoc(doc(db, "sezoane", `${tip}_${ed}`), { f1, f2: {}, f3: {}, f4: {}, finale: {} });
             await updateDoc(doc(db, "setari", "turnee"), { [`inscrisi_${tip}`]: [] });
             state.manualGrupe = {};
@@ -199,7 +198,7 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4">
                 <nav class="flex justify-between items-center mb-10 border-b border-slate-800 pb-6">
-                    <h1 onclick="nav('home')" class="font-black text-3xl cursor-pointer tracking-tighter text-white">Turneu<span class="text-blue-500"> Joker</span></h1>
+                    <h1 onclick="nav('home')" class="font-black text-3xl cursor-pointer tracking-tighter text-white uppercase">Turneu<span class="text-blue-500 italic ml-1">Joker</span></h1>
                     <div id="auth-ui" class="text-xs font-bold uppercase tracking-widest"></div>
                 </nav>`;
 
@@ -224,7 +223,7 @@
                     <div class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800">
                         <div class="flex justify-between items-center mb-6">
                             <div><div class="text-3xl font-black text-white italic">Ediția ${ed}</div><div class="text-[10px] text-slate-500 font-bold uppercase italic">În curs de organizare</div></div>
-                            <button onclick="nav('turneu', 'JOKER', ${ed})" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase">Vezi Grupe</button>
+                            <button onclick="nav('turneu', 'JOKER', ${ed})" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase">Vezi Detalii</button>
                         </div>
                         <div class="bg-black/40 p-5 rounded-2xl border border-white/5">
                             <div class="flex justify-between items-center mb-4"><span class="text-[10px] font-black uppercase text-slate-400">Jucători Înscriși (${inscrisi.length})</span>
@@ -240,16 +239,18 @@
                                 <div class="space-y-3 pt-4 border-t border-slate-800">
                                     <button onclick="adminImportJucatori()" class="w-full bg-slate-700 text-white py-2 rounded-lg text-[9px] font-black uppercase">Importă Listă Jucători</button>
                                     <div class="bg-black/20 p-4 rounded-xl">
-                                        <p class="text-[9px] font-black text-slate-500 uppercase mb-3">Configurare Manuală Grupe (Opțional)</p>
+                                        <p class="text-[9px] font-black text-slate-500 uppercase mb-3">Sortează Manual Grupele</p>
+                                        <div class="max-h-48 overflow-y-auto pr-2">
                                         ${inscrisi.map(n => `
                                             <div class="flex justify-between items-center mb-2 text-[10px]">
                                                 <span>${n}</span>
                                                 <select onchange="atribuiGrupaManual('${n}', this.value)" class="bg-slate-800 text-white p-1 rounded">
                                                     <option value="">Auto</option>
-                                                    ${['A','B','C','D','E','F'].map(g => `<option value="${g}" ${state.manualGrupe[n] === g ? 'selected' : ''}>Grupa ${g}</option>`).join('')}
+                                                    ${['A','B','C','D','E','F','G','H','I','J','K','L'].map(g => `<option value="${g}" ${state.manualGrupe[n] === g ? 'selected' : ''}>Grupa ${g}</option>`).join('')}
                                                 </select>
                                             </div>
                                         `).join('')}
+                                        </div>
                                     </div>
                                     <div class="flex gap-2">
                                         <button onclick="adminStartSezon('JOKER', ${ed}, 'random')" class="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase">Start Random</button>
@@ -259,11 +260,11 @@
                             ` : ''}
                         </div>
                     </div>
-                    <div onclick="nav('arhiva', 'JOKER')" class="mt-4 bg-slate-900/50 p-6 rounded-[1.5rem] border border-slate-800 text-center cursor-pointer hover:bg-slate-800 text-slate-500 font-black text-[10px] uppercase tracking-widest">Vezi Arhiva Edițiilor</div>
+                    <div onclick="nav('arhiva', 'JOKER')" class="mt-4 bg-slate-900/50 p-6 rounded-[1.5rem] border border-slate-800 text-center cursor-pointer hover:bg-slate-800 text-slate-500 font-black text-[10px] uppercase tracking-widest">Arhiva Edițiilor</div>
                 </div>`;
             } else if(state.pagina === "arhiva") {
                 html += `<button onclick="nav('home')" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Acasă</button>
-                <h2 class="text-4xl font-black text-white italic mb-8">Arhiva</h2><div class="grid grid-cols-2 gap-4">`;
+                <h2 class="text-4xl font-black text-white italic mb-8 uppercase tracking-tighter">Arhiva Turnee</h2><div class="grid grid-cols-2 gap-4">`;
                 for(let i=1; i < (globalData.ed_JOKER || 1); i++) {
                     html += `<div onclick="nav('turneu', 'JOKER', ${i})" class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all"><div class="text-2xl font-black text-white italic">Ediția ${i}</div></div>`;
                 }
@@ -273,15 +274,15 @@
                 const data = snap.data();
                 const esteGata = data?.finale?.meciuri?.find(m => m.id === "F-MARE")?.gata;
                 html += `<button onclick="nav('home')" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Acasă</button>
-                <div class="flex justify-between items-end mb-10"><h2 class="text-5xl font-black text-white italic tracking-tighter">Ediția ${state.editie}</h2>
+                <div class="flex justify-between items-end mb-10"><h2 class="text-5xl font-black text-white italic tracking-tighter uppercase">Ediția ${state.editie}</h2>
                 ${(isAdmin() && esteGata) ? `<button onclick="adminInchideEd('${state.tip}')" class="bg-red-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">Închide Ediția</button>` : ''}</div>`;
                 if(data) {
-                    if(isAdmin() && !esteGata) html += `<button onclick="adminFazaUrmatoare('${state.tip}', ${state.editie})" class="w-full mb-8 bg-white text-black py-4 rounded-2xl font-black uppercase text-xs">Generează Faza Următoare</button>`;
+                    if(isAdmin() && !esteGata) html += `<button onclick="adminFazaUrmatoare('${state.tip}', ${state.editie})" class="w-full mb-8 bg-white text-black py-4 rounded-2xl font-black uppercase text-xs">Următoarea Fază</button>`;
                     ["f1", "f2", "f3", "f4", "finale"].forEach(f => {
                         if(!data[f] || (f !== 'finale' && Object.keys(data[f]).length === 0) || (f === 'finale' && !data[f].meciuri)) return;
                         if(f === 'finale') {
                             const st = calculeazaClasament(data.finale);
-                            html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, 'FINALE', 'finale')" class="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 text-center cursor-pointer mb-6 shadow-2xl"><div class="text-4xl font-black text-white italic tracking-widest mb-4 uppercase">Marea Finală</div>
+                            html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, 'FINALE', 'finale')" class="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 text-center cursor-pointer mb-6 shadow-2xl"><div class="text-4xl font-black text-white italic tracking-widest mb-4 uppercase italic">Marea Finală</div>
                                 <div class="grid grid-cols-3 gap-2">
                                     <div class="bg-black/40 p-3 rounded-xl border border-yellow-500/20"><div class="text-[7px] font-black text-yellow-500 uppercase">Loc 1</div><div class="text-[10px] font-bold text-white truncate">${st[0]?.nume || '-'}</div></div>
                                     <div class="bg-black/40 p-3 rounded-xl border border-slate-400/20"><div class="text-[7px] font-black text-slate-400 uppercase">Loc 2</div><div class="text-[10px] font-bold text-white truncate">${st[1]?.nume || '-'}</div></div>
@@ -290,20 +291,20 @@
                         } else {
                             html += `<div class="grid grid-cols-2 gap-4 mb-8">`;
                             Object.keys(data[f]).sort().forEach(gk => {
-                                html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, '${gk}', '${f}')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all shadow-lg">
+                                html += `<div onclick="nav('grupa', '${state.tip}', ${state.editie}, '${gk}', '${f}')" class="bg-slate-900 p-10 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-white transition-all">
                                     <div class="text-[10px] font-black text-slate-500 uppercase mb-1">Faza ${f.substring(1)}</div><div class="text-3xl font-black text-white italic">Grupa ${gk}</div>
                                 </div>`;
                             });
                             html += `</div>`;
                         }
                     });
-                } else { html += `<div class="text-center py-20 text-slate-700 font-black uppercase text-[10px]">Nu există date.</div>`; }
+                } else { html += `<div class="text-center py-20 text-slate-700 font-black uppercase text-[10px]">Nicio dată disponibilă.</div>`; }
             } else if(state.pagina === "grupa") {
                 const snap = await getDoc(doc(db, "sezoane", `${state.tip}_${state.editie}`));
                 const d = snap.data();
                 const g = state.faza === 'finale' ? d.finale : d[state.faza][state.idGrupa];
                 html += `<button onclick="nav('turneu', '${state.tip}', ${state.editie})" class="mb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest"> ← Înapoi</button>
-                <h2 class="text-6xl font-black text-white italic mb-10 tracking-tighter">${state.faza === 'finale' ? 'FINALE' : 'Grupa ' + state.idGrupa}</h2>`;
+                <h2 class="text-6xl font-black text-white italic mb-10 tracking-tighter uppercase">${state.faza === 'finale' ? 'Finala' : 'Grupa ' + state.idGrupa}</h2>`;
                 if(state.faza !== 'finale') {
                     const c = calculeazaClasament(g);
                     html += `<div class="bg-slate-900 rounded-[2rem] p-8 mb-12 border border-slate-800 shadow-xl"><table class="w-full text-left"><tr class="text-[9px] font-black uppercase text-slate-600 border-b border-slate-800"><th class="pb-4">Jucător</th><th class="pb-4 text-center">Pct</th><th class="pb-4 text-right">Seturi</th></tr>
@@ -311,11 +312,11 @@
                     </table></div>`;
                 }
                 g.participanti.forEach(juc => {
-                    html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800 shadow-lg"><div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4">${juc}</div>`;
+                    html += `<div class="bg-slate-900 p-8 rounded-[2rem] mb-8 border border-slate-800"><div class="text-2xl font-black mb-6 text-white border-b border-slate-800 pb-4 uppercase tracking-tighter">${juc}</div>`;
                     g.meciuri.filter(m => m.p1 === juc || m.p2 === juc).forEach(m => {
                         html += `<div class="bg-black/40 p-5 rounded-2xl mb-4 border border-white/5 flex justify-between items-center"><div class="text-[10px] font-black text-slate-500 uppercase">${m.p1 === juc ? m.p2 : m.p1}</div><div class="flex gap-4">
-                                <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-4 py-2 rounded-xl cursor-pointer min-w-[70px] text-center"><span class="block text-[7px] opacity-40 uppercase">Tur</span><span class="text-lg font-black text-white">${m.s1t}:${m.s2t}</span></div>
-                                <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-4 py-2 rounded-xl cursor-pointer min-w-[70px] text-center"><span class="block text-[7px] opacity-40 uppercase">Retur</span><span class="text-lg font-black text-white">${m.s1r}:${m.s2r}</span></div>
+                                <div onclick="updateScor('${m.id}','t')" class="bg-slate-800 hover:bg-blue-600 px-4 py-2 rounded-xl cursor-pointer min-w-[70px] text-center"><span class="block text-[7px] opacity-40 uppercase">T</span><span class="text-lg font-black text-white">${m.s1t}:${m.s2t}</span></div>
+                                <div onclick="updateScor('${m.id}','r')" class="bg-slate-800 hover:bg-blue-600 px-4 py-2 rounded-xl cursor-pointer min-w-[70px] text-center"><span class="block text-[7px] opacity-40 uppercase">R</span><span class="text-lg font-black text-white">${m.s1r}:${m.s2r}</span></div>
                             </div></div>`;
                     });
                     html += `</div>`;
