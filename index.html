@@ -61,13 +61,9 @@
             g.participanti.forEach(p => st[p] = { victorii: 0, castigate: 0, pierdute: 0, nume: p });
             g.meciuri.forEach(m => {
                 if(!m.gata) return;
-                // Procesăm Tur și Retur separat
                 [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}].forEach(s => {
-                    // Logica pentru Victorii (meciul câștigat aduce 1 punct)
                     if(s.s1 > s.s2) st[m.p1].victorii += 1; 
                     else if(s.s2 > s.s1) st[m.p2].victorii += 1;
-                    
-                    // Logica pentru Puncte Câștigate/Pierdute
                     st[m.p1].castigate += s.s1; st[m.p1].pierdute += s.s2;
                     st[m.p2].castigate += s.s2; st[m.p2].pierdute += s.s1;
                 });
@@ -76,13 +72,12 @@
         };
 
         window.updateScorMeci = async (faza, mId, set, p1, p2) => {
-            const numeEu = curataNume(userLogat.displayName);
-            if(!isAdmin() && numeEu !== p1 && numeEu !== p2) return alert("Nu poti modifica scorul altora!");
+            if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
             const val = prompt(`Scor (ex: 2-1):`);
             if(!val) return;
             let [va, vb] = val.split("-").map(Number);
-            let s1 = (numeEu === p2 && !isAdmin()) ? vb : va;
-            let s2 = (numeEu === p2 && !isAdmin()) ? va : vb;
+            let s1 = va;
+            let s2 = vb;
             let data = {...currentSezonData};
             let meci = faza === 'f1' ? data.f1[state.idGrupa].meciuri.find(m => m.id === mId) : data[faza].meciuri.find(m => m.id === mId);
             meci[`s1${set}`] = s1; meci[`s2${set}`] = s2; meci.gata = true;
@@ -172,7 +167,8 @@
                         html += `<div class="mb-10"><h4 class="text-[11px] font-black uppercase mb-4 ml-2 tracking-widest ${top2.includes(j) ? 'text-green-500' : 'text-slate-500'}">${j}</h4>`;
                         meciuri.forEach(m => {
                             const adv = m.p1 === j ? m.p2 : m.p1, s1 = m.p1 === j ? m.s1t : m.s2t, s2 = m.p1 === j ? m.s2t : m.s1t, r1 = m.p1 === j ? m.s1r : m.s2r, r2 = m.p1 === j ? m.s2r : m.s1r;
-                            html += `<div class="bg-slate-900/50 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5 shadow-lg"><div class="flex flex-col"><span class="text-[10px] font-black uppercase italic">${j} vs ${adv}</span></div><div class="flex gap-4"><div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1">TUR</span><button onclick="updateScorMeci('f1','${m.id}','t','${m.p1}','${m.p2}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] hover:border-blue-500">${s1}-${s2}</button></div><div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1">RETUR</span><button onclick="updateScorMeci('f1','${m.id}','r','${m.p1}','${m.p2}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] hover:border-blue-500">${r1}-${r2}</button></div></div></div>`;
+                            const curs = isAdmin() ? 'cursor-pointer hover:border-blue-500' : 'cursor-default opacity-80';
+                            html += `<div class="bg-slate-900/50 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5 shadow-lg"><div class="flex flex-col"><span class="text-[10px] font-black uppercase italic">${j} vs ${adv}</span></div><div class="flex gap-4"><div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1">TUR</span><button onclick="updateScorMeci('f1','${m.id}','t','${m.p1}','${m.p2}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${s1}-${s2}</button></div><div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1">RETUR</span><button onclick="updateScorMeci('f1','${m.id}','r','${m.p1}','${m.p2}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${r1}-${r2}</button></div></div></div>`;
                         });
                         html += `</div>`;
                     });
