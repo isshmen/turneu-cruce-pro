@@ -58,16 +58,21 @@
         const calculeazaClasament = (g) => {
             if (!g) return [];
             let st = {};
-            g.participanti.forEach(p => st[p] = { puncte: 0, realizate: 0, pierdute: 0, nume: p });
+            g.participanti.forEach(p => st[p] = { victorii: 0, castigate: 0, pierdute: 0, nume: p });
             g.meciuri.forEach(m => {
                 if(!m.gata) return;
+                // Procesăm Tur și Retur separat
                 [{s1: m.s1t, s2: m.s2t}, {s1: m.s1r, s2: m.s2r}].forEach(s => {
-                    if(s.s1 > s.s2) st[m.p1].puncte += 2; else if(s.s2 > s.s1) st[m.p2].puncte += 2;
-                    st[m.p1].realizate += s.s1; st[m.p1].pierdute += s.s2;
-                    st[m.p2].realizate += s.s2; st[m.p2].pierdute += s.s1;
+                    // Logica pentru Victorii (meciul câștigat aduce 1 punct)
+                    if(s.s1 > s.s2) st[m.p1].victorii += 1; 
+                    else if(s.s2 > s.s1) st[m.p2].victorii += 1;
+                    
+                    // Logica pentru Puncte Câștigate/Pierdute
+                    st[m.p1].castigate += s.s1; st[m.p1].pierdute += s.s2;
+                    st[m.p2].castigate += s.s2; st[m.p2].pierdute += s.s1;
                 });
             });
-            return Object.values(st).sort((a,b) => (b.puncte - a.puncte) || (b.realizate - a.realizate) || (a.pierdute - b.pierdute));
+            return Object.values(st).sort((a,b) => (b.victorii - a.victorii) || (b.castigate - a.castigate) || (a.pierdute - b.pierdute));
         };
 
         window.updateScorMeci = async (faza, mId, set, p1, p2) => {
@@ -134,27 +139,14 @@
                         <div class="flex flex-wrap gap-2 mb-8">${inscrisi.map(n => `<span class="bg-black/50 px-3 py-2 rounded-xl text-[10px] font-bold border border-white/5 uppercase">${n}</span>`).join('')}</div>
                         ${isAdmin() ? `<div class="space-y-4 pt-6 border-t border-slate-800"><button onclick="adminImportJucatori()" class="w-full bg-slate-800 text-white py-3 rounded-xl text-[10px] font-black uppercase">Importă Listă</button><div class="bg-black/40 p-4 rounded-xl max-h-40 overflow-y-auto">${inscrisi.map(n => `<div class="flex justify-between items-center mb-2 text-[10px] font-bold"><span>${n}</span><select onchange="atribuiGrupaManual('${n}', this.value)" class="bg-slate-800 p-1 rounded"><option value="">Auto</option>${['A','B','C','D','E','F','G','H'].map(g => `<option value="${g}" ${state.manualGrupe[n]===g?'selected':''}>${g}</option>`).join('')}</select></div>`).join('')}</div><div class="flex gap-2"><button onclick="adminStartSezon('random')" class="flex-1 bg-green-600 py-3 rounded-xl font-black uppercase text-[10px]">Start Random</button><button onclick="adminStartSezon('manual')" class="flex-1 bg-purple-600 py-3 rounded-xl font-black uppercase text-[10px]">Start Manual</button></div></div>` : ''}</div>`;
                 } else {
-                    html += `<div class="text-center mb-6"><h2 class="text-4xl font-black italic uppercase text-white">Joker Ediția #${ed}</h2></div>`;
-                    
-                    // Bara de Search
-                    html += `<div class="mb-10 px-2"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white text-sm focus:border-blue-500 outline-none transition-all"></div>`;
-
+                    html += `<div class="text-center mb-6"><h2 class="text-4xl font-black italic uppercase text-white">Joker Ediția #${ed}</h2></div>
+                    <div class="mb-10 px-2"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white text-sm focus:border-blue-500 outline-none transition-all"></div>`;
                     const fazeMap = { f1: "Faza Grupelor", f2: "16-imi", optimi: "Optimi", semi: "Semifinale", finale: "Marea Finală" };
                     ["f1", "f2", "optimi", "semi", "finale"].forEach(f => {
                         if(!curSezon[f]) return;
-                        
-                        let grupeDeAfisat = [];
-                        if(f === 'f1') {
-                            grupeDeAfisat = Object.keys(curSezon.f1).sort().filter(gk => {
-                                if(!state.search) return true;
-                                return curSezon.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search));
-                            });
-                        }
-
+                        let grupeDeAfisat = f === 'f1' ? Object.keys(curSezon.f1).sort().filter(gk => !state.search || curSezon.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search))) : [];
                         if(f === 'f1' && grupeDeAfisat.length === 0 && state.search) return;
-
                         html += `<div class="mb-10"><div class="flex items-center gap-4 mb-6"><div class="h-px bg-slate-800 flex-1"></div><h3 class="text-slate-500 font-black uppercase text-[10px] tracking-widest">${fazeMap[f]}</h3><div class="h-px bg-slate-800 flex-1"></div></div><div class="grid grid-cols-2 gap-4">`;
-                        
                         if(f === 'f1') {
                             grupeDeAfisat.forEach(gk => {
                                 html += `<div onclick="nav('grupa', '${gk}', 'f1')" class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all shadow-lg"><div class="text-[10px] font-black text-slate-500 uppercase">Grupa</div><div class="text-3xl font-black text-white italic">${gk}</div></div>`;
@@ -170,10 +162,10 @@
                 html += `<button onclick="nav('home')" class="bg-green-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] mb-8 shadow-lg flex items-center gap-2">← Înapoi la tablou</button>`;
                 if(state.faza === 'f1') {
                     const g = curSezon.f1[state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
-                    html += `<div class="text-center mb-6"><h3 class="text-2xl font-black italic uppercase text-white">Grupa ${state.idGrupa}</h3></div>`;
-                    html += `<div class="bg-slate-900 p-6 rounded-[2rem] mb-12 border border-slate-800 shadow-2xl"><table class="w-full text-[11px] font-bold border-separate border-spacing-y-2">
-                        <tr class="text-slate-500 uppercase tracking-widest"><th class="text-left px-2">Jucător</th><th class="text-center">Seturi</th><th class="text-center">R</th><th class="text-right px-2">P</th></tr>
-                        ${c.map(x => `<tr class="bg-black/20 rounded-xl"><td class="py-4 px-3 uppercase italic ${top2.includes(x.nume) ? 'text-green-500' : ''}">${x.nume}</td><td class="text-center text-blue-500 font-black">${x.puncte}</td><td class="text-center">${x.realizate}</td><td class="text-right px-3 text-slate-500">${x.pierdute}</td></tr>`).join('')}
+                    html += `<div class="text-center mb-6"><h3 class="text-2xl font-black italic uppercase text-white">Grupa ${state.idGrupa}</h3></div>
+                    <div class="bg-slate-900 p-6 rounded-[2rem] mb-12 border border-slate-800 shadow-2xl"><table class="w-full text-[11px] font-bold border-separate border-spacing-y-2">
+                        <tr class="text-slate-500 uppercase tracking-widest"><th class="text-left px-2">Jucător</th><th class="text-center">Victorii</th><th class="text-center">Castigate</th><th class="text-right px-2">Pierdute</th></tr>
+                        ${c.map(x => `<tr class="bg-black/20 rounded-xl"><td class="py-4 px-3 uppercase italic ${top2.includes(x.nume) ? 'text-green-500' : ''}">${x.nume}</td><td class="text-center text-blue-500 font-black">${x.victorii}</td><td class="text-center">${x.castigate}</td><td class="text-right px-3 text-slate-500">${x.pierdute}</td></tr>`).join('')}
                     </table></div>`;
                     g.participanti.forEach(j => {
                         const meciuri = g.meciuri.filter(m => m.p1 === j || m.p2 === j);
