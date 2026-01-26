@@ -72,22 +72,27 @@
         };
 
         window.updateScorMeci = async (faza, mId, set, p1, p2) => {
-            if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
-            const val = prompt(`Scor (ex: 2-1):`);
-            if(!val) return;
-            let [va, vb] = val.split("-").map(Number);
-            let data = {...currentSezonData};
-            let meci = faza === 'f1' ? data.f1[state.idGrupa].meciuri.find(m => m.id === mId) : data[faza][state.idGrupa].meciuri.find(m => m.id === mId);
-            meci[`s1${set}`] = va; meci[`s2${set}`] = vb; meci.gata = true;
-            
-            await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
+    if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
+    const val = prompt(`Scor (ex: 2-1):`);
+    if(!val) return;
+    let [va, vb] = val.split("-").map(Number);
+    let data = {...currentSezonData};
+    let meci = faza === 'f1' ? data.f1[state.idGrupa].meciuri.find(m => m.id === mId) : data[faza][state.idGrupa].meciuri.find(m => m.id === mId);
+    meci[`s1${set}`] = va; meci[`s2${set}`] = vb; meci.gata = true;
+    
+    await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
 
-            await setDoc(doc(db, "chat", "sys-" + Date.now()), {
-                text: `Scor actualizat în ${state.idGrupa.length > 1 ? 'Faza 2' : 'Grupa'} ${state.idGrupa}: ${p1} vs ${p2} (${va}-${vb})`,
-                timestamp: Date.now(),
-                tip: 'sistem'
-            });
-        };
+    // Log logic: Combină Tur + Retur într-un singur mesaj
+    const scorTur = `${meci.s1t}-${meci.s2t}`;
+    const scorRetur = `${meci.s1r}-${meci.s2r}`;
+    const logId = `log-${mId}`; // ID unic per meci pentru a evita dublurile
+
+    await setDoc(doc(db, "chat", logId), {
+        text: `Scor actualizat în ${state.idGrupa.length > 1 ? 'Faza 2' : 'Grupa'} ${state.idGrupa}: ${p1} vs ${p2} (${scorTur}) (${scorRetur})`,
+        timestamp: Date.now(),
+        tip: 'sistem'
+    });
+};
 
         window.gestiuneInscriere = async (a) => {
             const nume = curataNume(userLogat.displayName);
@@ -221,3 +226,4 @@
     </footer>
 </body>
 </html>
+
