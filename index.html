@@ -71,32 +71,40 @@
             return Object.values(st).sort((a,b) => (b.victorii - a.victorii) || (b.castigate - a.castigate) || (a.pierdute - b.pierdute));
         };
 
-        window.updateScorMeci = async (faza, mId, set, p1, p2) => {
-            if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
-            const val = prompt(`Scor pentru ${p1} - ${p2} (ex: 2-1):`);
-            if(!val) return;
-            
-            let [va, vb] = val.split("-").map(Number);
-            if(isNaN(va) || isNaN(vb)) return alert("Format invalid!");
+       window.updateScorMeci = async (faza, mId, set, p1, p2, titularCurent) => {
+    if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
+    
+    // Determinăm ordinea vizuală: cel de pe al cui card suntem apare primul în input
+    const nume1 = titularCurent === p1 ? p1 : p2;
+    const nume2 = titularCurent === p1 ? p2 : p1;
 
-            let data = {...currentSezonData};
-            let meci = faza === 'f1' ? data.f1[state.idGrupa].meciuri.find(m => m.id === mId) : data[faza][state.idGrupa].meciuri.find(m => m.id === mId);
-            
-            meci[`s1${set}`] = va; 
-            meci[`s2${set}`] = vb; 
-            meci.gata = true;
-            
-            await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
+    const val = prompt(`Scor pentru ${nume1} vs ${nume2} (ex: 2-0):`);
+    if(!val) return;
+    
+    let [v1, v2] = val.split("-").map(Number);
+    if(isNaN(v1) || isNaN(v2)) return alert("Format invalid!");
 
-            const scorTur = `${meci.s1t}-${meci.s2t}`;
-            const scorRetur = `${meci.s1r}-${meci.s2r}`;
+    let data = {...currentSezonData};
+    let meci = faza === 'f1' ? data.f1[state.idGrupa].meciuri.find(m => m.id === mId) : data[faza][state.idGrupa].meciuri.find(m => m.id === mId);
+    
+    // Mapăm scorurile corect în baza de date (s1 e mereu p1, s2 e mereu p2)
+    if (titularCurent === p1) {
+        meci[`s1${set}`] = v1; 
+        meci[`s2${set}`] = v2;
+    } else {
+        meci[`s1${set}`] = v2; 
+        meci[`s2${set}`] = v1;
+    }
+    
+    meci.gata = true;
+    await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
 
-            await setDoc(doc(collection(db, "chat")), {
-                text: `Rezultat ${state.idGrupa.length > 1 ? 'Faza 2' : 'Grupa'} ${state.idGrupa}: ${p1} ${va}-${vb} ${p2} (Set: ${set === 't' ? 'Tur' : 'Retur'})`,
-                timestamp: Date.now(),
-                tip: 'sistem'
-            });
-        };
+    await setDoc(doc(collection(db, "chat")), {
+        text: `Scor actualizat: ${nume1} ${v1}-${v2} ${nume2} (${set === 't' ? 'Tur' : 'Retur'})`,
+        timestamp: Date.now(),
+        tip: 'sistem'
+    });
+};
 
         window.gestiuneInscriere = async (a) => {
             const nume = curataNume(userLogat.displayName);
@@ -206,27 +214,29 @@
                 g.participanti.forEach(j => {
                     const meciuri = g.meciuri.filter(m => m.p1 === j || m.p2 === j);
                     html += `<div class="mb-10"><h4 class="text-[11px] font-black uppercase mb-4 ml-2 tracking-widest ${top2.includes(j) ? 'text-green-500' : 'text-slate-500'}">${j}</h4>`;
-                    meciuri.forEach(m => {
-                        const adv = m.p1 === j ? m.p2 : m.p1;
-                        const s1 = m.p1 === j ? m.s1t : m.s2t;
-                        const s2 = m.p1 === j ? m.s2t : m.s1t;
-                        const r1 = m.p1 === j ? m.s1r : m.s2r;
-                        const r2 = m.p1 === j ? m.s2r : m.s1r;
-                        const curs = isAdmin() ? 'cursor-pointer hover:border-blue-500' : 'cursor-default opacity-80';
-                        html += `<div class="bg-slate-900/50 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5 shadow-lg">
-                            <div class="flex flex-col"><span class="text-[10px] font-black uppercase italic">${j} vs ${adv}</span></div>
-                            <div class="flex gap-4">
-                                <div class="flex flex-col items-center">
-                                    <span class="text-[8px] font-black text-slate-600 mb-1">TUR</span>
-                                    <button onclick="updateScorMeci('${state.faza}','${m.id}','t','${m.p1}','${m.p2}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${s1}-${s2}</button>
-                                </div>
-                                <div class="flex flex-col items-center">
-                                    <span class="text-[8px] font-black text-slate-600 mb-1">RETUR</span>
-                                    <button onclick="updateScorMeci('${state.faza}','${m.id}','r','${m.p1}','${m.p2}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${r1}-${r2}</button>
-                                </div>
-                            </div>
-                        </div>`;
-                    });
+// CAUTĂ ACEASTĂ SECȚIUNE ȘI ÎNLOCUIEȘTE-O:
+meciuri.forEach(m => {
+    const adv = m.p1 === j ? m.p2 : m.p1;
+    const s1 = m.p1 === j ? m.s1t : m.s2t;
+    const s2 = m.p1 === j ? m.s2t : m.s1t;
+    const r1 = m.p1 === j ? m.s1r : m.s2r;
+    const r2 = m.p1 === j ? m.s2r : m.s1r;
+    const curs = isAdmin() ? 'cursor-pointer hover:border-blue-500' : 'cursor-default opacity-80';
+    
+    html += `<div class="bg-slate-900/50 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5 shadow-lg">
+        <div class="flex flex-col"><span class="text-[10px] font-black uppercase italic">${j} vs ${adv}</span></div>
+        <div class="flex gap-4">
+            <div class="flex flex-col items-center">
+                <span class="text-[8px] font-black text-slate-600 mb-1">TUR</span>
+                <button onclick="updateScorMeci('${state.faza}','${m.id}','t','${m.p1}','${m.p2}', '${j}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${s1}-${s2}</button>
+            </div>
+            <div class="flex flex-col items-center">
+                <span class="text-[8px] font-black text-slate-600 mb-1">RETUR</span>
+                <button onclick="updateScorMeci('${state.faza}','${m.id}','r','${m.p1}','${m.p2}', '${j}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${r1}-${r2}</button>
+            </div>
+        </div>
+    </div>`;
+});
                     html += `</div>`;
                 });
             }
@@ -246,3 +256,4 @@
     </footer>
 </body>
 </html>
+
