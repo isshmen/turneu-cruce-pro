@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Joker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, collection, setDoc, onSnapshot, query, orderBy, limitToLast, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
+            authDomain: "turneu-cruce.firebaseapp.com",
+            projectId: "turneu-cruce",
+            storageBucket: "turneu-cruce.firebasestorage.app",
+            messagingSenderId: "169022341825",
+            appId: "1:169022341825:web:53678e9ce275654bfe4a40"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
+        let userLogat = null;
+
+        const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
+        const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "Anonim";
+
+        // Trimitere Mesaj
+        window.trimiteMesaj = async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text || !userLogat) return;
+
+            await setDoc(doc(collection(db, "chat")), {
+                text: text,
+                expeditor: curataNume(userLogat.displayName),
+                uid: userLogat.uid,
+                timestamp: Date.now(),
+                tip: 'user'
+            });
+            input.value = "";
+        };
+
+        // Ștergere (Admin)
+        window.stergeMesaj = async (id) => {
+            if (!isAdmin()) return;
+            if (confirm("Ștergi mesajul?")) {
+                await updateDoc(doc(db, "chat", id), { sters: true });
+            }
+        };
+
+        // Render Real-time
+        onAuthStateChanged(auth, (u) => {
+            userLogat = u;
+            const q = query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(50));
+            onSnapshot(q, (snapshot) => {
+                const chatContainer = document.getElementById('chatContainer');
+                let html = "";
+                
+                snapshot.forEach((d) => {
+                    const m = d.data();
+                    if (m.sters) return;
+                    
+                    const esteSistem = m.tip === 'sistem';
+                    const esteEu = m.uid === userLogat?.uid;
+
+                    if (esteSistem) {
+                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-2">
+                            <p class="text-[10px] font-bold text-blue-400 uppercase italic">📢 ${m.text}</p>
+                        </div>`;
+                    } else {
+                        html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[8px] font-black uppercase text-slate-500">${m.expeditor}</span>
+                                ${isAdmin() ? `<button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] font-black">[X]</button>` : ''}
+                            </div>
+                            <div class="${esteEu ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-200'} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-md">
+                                ${m.text}
+                            </div>
+                        </div>`;
+                    }
+                });
+                
+                chatContainer.innerHTML = html;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                document.getElementById('inputZona').style.display = userLogat ? 'flex' : 'none';
+            });
+        });
+    </script>
+</head>
+<body class="bg-black text-slate-300 font-sans p-4">
+    <div class="max-w-2xl mx-auto">
+        <a href="/" class="inline-block bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg">← Acasă</a>
+        
+        <div class="bg-slate-900 rounded-[2rem] border border-slate-800 flex flex-col h-[80vh] overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-800 bg-black/20 text-center">
+                <h3 class="text-xl font-black italic uppercase text-white">Chat & Activitate</h3>
+            </div>
+            
+            <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth">
+                </div>
+
+            <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex gap-2" style="display: none;">
+                <input type="text" id="chatInput" placeholder="Scrie un mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500">
+                <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px]">Trimite</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
