@@ -87,12 +87,11 @@
     const scorRetur = `${meci.s1r}-${meci.s2r}`;
     const logId = `log-${mId}`; // ID unic per meci pentru a evita dublurile
 
-    await setDoc(doc(db, "chat", logId), {
-        text: `Scor actualizat în ${state.idGrupa.length > 1 ? 'Faza 2' : 'Grupa'} ${state.idGrupa}: ${p1} vs ${p2} (${scorTur}) (${scorRetur})`,
-        timestamp: Date.now(),
-        tip: 'sistem'
-    });
-};
+   await setDoc(doc(collection(db, "chat")), {
+    text: `Scor actualizat în ${state.idGrupa.length > 1 ? 'Faza 2' : 'Grupa'} ${state.idGrupa}: ${p1} vs ${p2} (${scorTur}) (${scorRetur})`,
+    timestamp: Date.now(),
+    tip: 'sistem'
+});
 
         window.gestiuneInscriere = async (a) => {
             const nume = curataNume(userLogat.displayName);
@@ -226,4 +225,5 @@
     </footer>
 </body>
 </html>
+
 
