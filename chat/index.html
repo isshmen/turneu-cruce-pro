@@ -54,6 +54,15 @@
             }
         };
 
+        // Editare (Admin)
+        window.editeazaMesaj = async (id, textVechi) => {
+            if (!isAdmin()) return;
+            const noulText = prompt("Editează mesajul:", textVechi);
+            if (noulText && noulText !== textVechi) {
+                await updateDoc(doc(db, "chat", id), { text: noulText });
+            }
+        };
+
         // Render Real-time
         onAuthStateChanged(auth, (u) => {
             userLogat = u;
@@ -68,16 +77,25 @@
                     
                     const esteSistem = m.tip === 'sistem';
                     const esteEu = m.uid === userLogat?.uid;
+                    const ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 
                     if (esteSistem) {
-                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-2">
+                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-2 relative group">
                             <p class="text-[10px] font-bold text-blue-400 uppercase italic">📢 ${m.text}</p>
+                            <span class="text-[8px] text-slate-600 block mt-1">${ora}</span>
+                            ${isAdmin() ? `<div class="hidden group-hover:flex gap-2 justify-center mt-2">
+                                <button onclick="editeazaMesaj('${d.id}', '${m.text}')" class="text-blue-500 text-[8px] uppercase font-black">[Edit]</button>
+                                <button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] uppercase font-black">[Șterge]</button>
+                            </div>` : ''}
                         </div>`;
                     } else {
-                        html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4">
+                        html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4 group">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="text-[8px] font-black uppercase text-slate-500">${m.expeditor}</span>
-                                ${isAdmin() ? `<button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] font-black">[X]</button>` : ''}
+                                <span class="text-[8px] font-black uppercase text-slate-500">${m.expeditor} • ${ora}</span>
+                                ${isAdmin() ? `
+                                    <button onclick="editeazaMesaj('${d.id}', '${m.text}')" class="hidden group-hover:inline text-blue-500 text-[8px] font-black">[Edit]</button>
+                                    <button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] font-black">[X]</button>
+                                ` : ''}
                             </div>
                             <div class="${esteEu ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-200'} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-md">
                                 ${m.text}
@@ -94,22 +112,30 @@
     </script>
 </head>
 <body class="bg-black text-slate-300 font-sans p-4">
-    <div class="max-w-2xl mx-auto">
-        <a href="/" class="inline-block bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg">← Acasă</a>
-        
-        <div class="bg-slate-900 rounded-[2rem] border border-slate-800 flex flex-col h-[80vh] overflow-hidden shadow-2xl">
-            <div class="p-6 border-b border-slate-800 bg-black/20 text-center">
-                <h3 class="text-xl font-black italic uppercase text-white">Chat & Activitate</h3>
-            </div>
+    <div class="max-w-2xl mx-auto min-h-screen flex flex-col">
+        <div class="flex-1">
+            <a href="/" class="inline-block bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg">← Acasă</a>
             
-            <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth">
+            <div class="bg-slate-900 rounded-[2rem] border border-slate-800 flex flex-col h-[75vh] overflow-hidden shadow-2xl">
+                <div class="p-6 border-b border-slate-800 bg-black/20 text-center">
+                    <h3 class="text-xl font-black italic uppercase text-white">Chat & Activitate</h3>
                 </div>
+                
+                <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth">
+                    </div>
 
-            <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex gap-2" style="display: none;">
-                <input type="text" id="chatInput" placeholder="Scrie un mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500">
-                <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px]">Trimite</button>
-            </form>
+                <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex gap-2" style="display: none;">
+                    <input type="text" id="chatInput" placeholder="Scrie un mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500">
+                    <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px]">Trimite</button>
+                </form>
+            </div>
         </div>
+
+        <footer class="mt-10 py-10 border-t border-slate-900 text-center">
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 px-4"> 
+                &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500 hover:text-blue-400">Vali Dragomir</a>. Poti sustine proiectul cu o donatie pe <a href="http://revolut.me/isshmen" target="_blank" class="text-blue-500 hover:text-blue-400">Revolut</a>
+            </p>
+        </footer>
     </div>
 </body>
 </html>
