@@ -33,52 +33,25 @@
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
         const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "Anonim";
 
-        // --- NOTIFICARI ---
         window.activeazaNotificari = () => {
-            Notification.requestPermission().then(perm => {
-                if (perm === "granted") alert("Notificări activate!");
-            });
+            Notification.requestPermission().then(perm => { if (perm === "granted") alert("Notificări activate!"); });
         };
 
         const trimiteNotificare = (titlu, msg) => {
             if (Notification.permission === "granted" && !primaIncarcare) {
-                new Notification(titlu, { body: msg, icon: "/favicon.ico" });
+                new Notification(titlu, { body: msg });
             }
         };
 
-        // --- ADMIN & EDIT ---
+        const extractYTId = (t) => {
+            const match = t.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
+            return (match && match[7].length == 11) ? match[7] : false;
+        };
+
         window.stergeMesaj = async (id) => { if (confirm("Ștergi?")) await deleteDoc(doc(db, "chat", id)); };
         window.editeazaMesaj = async (id, textVechi) => {
             const nouText = prompt("Editează:", textVechi);
             if (nouText && nouText !== textVechi) await updateDoc(doc(db, "chat", id), { text: nouText, editat: true });
-        };
-
-        window.deschidePoza = (url) => {
-            const modal = document.getElementById('imageModal');
-            document.getElementById('fullImage').src = url;
-            modal.classList.replace('hidden', 'flex');
-        };
-        window.inchidePoza = () => document.getElementById('imageModal').classList.replace('flex', 'hidden');
-
-        // --- MEDIA ---
-        const optimizeImage = (file) => {
-            return new Promise((res) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let w = img.width, h = img.height;
-                        if (w > 1000) { h *= 1000 / w; w = 1000; }
-                        canvas.width = w; canvas.height = h;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, w, h);
-                        canvas.toBlob((blob) => res(blob), 'image/jpeg', 0.7);
-                    };
-                };
-            });
         };
 
         window.handleFileUpload = async (event) => {
@@ -87,9 +60,8 @@
             const btn = document.getElementById('btnUpload');
             btn.innerHTML = "⏳";
             try {
-                const blob = await optimizeImage(file);
                 const formData = new FormData();
-                formData.append("image", blob);
+                formData.append("image", file);
                 const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API}`, { method: "POST", body: formData });
                 const data = await res.json();
                 if (data.success) {
@@ -111,9 +83,29 @@
             await setDoc(doc(collection(db, "chat")), {
                 text: text, expeditor: curataNume(userLogat.displayName),
                 uid: userLogat.uid, timestamp: Date.now(), tip: 'user',
-                reply: replyTo, esteAdmin: isAdmin()
+                reply: replyTo, esteAdmin: isAdmin(), ytId: extractYTId(text)
             });
             input.value = ""; window.cancelReply();
+        };
+
+        window.handleTagging = (val) => {
+            const idx = val.lastIndexOf('@');
+            const div = document.getElementById('sugestiiTag');
+            if (idx !== -1) {
+                const s = val.substring(idx + 1).toLowerCase();
+                const matches = listaJucatori.filter(n => n.toLowerCase().includes(s)).slice(0, 5);
+                if (matches.length > 0) {
+                    div.innerHTML = matches.map(n => `<div onclick="aplicaTag('${n}')" class="p-3 hover:bg-blue-600 cursor-pointer border-b border-white/10 text-xs font-bold uppercase">${n}</div>`).join('');
+                    div.classList.remove('hidden'); return;
+                }
+            }
+            div.classList.add('hidden');
+        };
+
+        window.aplicaTag = (n) => {
+            const i = document.getElementById('chatInput');
+            i.value = i.value.substring(0, i.value.lastIndexOf('@')) + `@${n} `;
+            document.getElementById('sugestiiTag').classList.add('hidden'); i.focus();
         };
 
         window.setReply = (id, nume, text) => {
@@ -125,6 +117,9 @@
 
         onAuthStateChanged(auth, async (u) => {
             userLogat = u;
+            const s = await getDoc(doc(db, "setari", "turnee"));
+            if(s.exists()) listaJucatori = [...new Set((s.data().inscrisi_JOKER || []).flatMap(e => e.split(/[&+/]/).map(n => n.trim())))];
+
             onSnapshot(query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(50)), (snap) => {
                 let html = "";
                 snap.forEach(d => {
@@ -139,7 +134,7 @@
                         const colBula = esteAdminMsg ? 'border border-green-500/30 bg-green-900/20' : (esteEu ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-100');
                         html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4 group">
                             <div class="flex items-center gap-3 mb-1 px-2 text-[8px] font-black uppercase ${colNume}">
-                                <span>${m.expeditor} • ${ora}</span>
+                                <span>${m.expeditor} • ${ora} ${m.editat ? '(editat)' : ''}</span>
                                 <div class="opacity-0 group-hover:opacity-100 flex gap-2">
                                     <button onclick="setReply('${id}', '${m.expeditor}', '${m.text}')" class="text-slate-400">Reply</button>
                                     ${esteEu ? `<button onclick="editeazaMesaj('${id}', '${m.text}')" class="text-blue-400">Edit</button>` : ''}
@@ -148,8 +143,9 @@
                             </div>
                             <div class="${colBula} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-lg">
                                 ${m.reply ? `<div class="text-[9px] opacity-60 border-l-2 border-white/30 pl-2 mb-2 italic bg-black/20 p-1 rounded">@${m.reply.nume}: ${m.reply.text}</div>` : ''}
-                                ${m.text ? `<div>${m.text}</div>` : ''}
-                                ${m.mediaUrl ? `<img src="${m.thumbUrl || m.mediaUrl}" onclick="deschidePoza('${m.mediaUrl}')" class="rounded-lg mt-2 max-w-full cursor-pointer">` : ''}
+                                ${m.text ? `<div>${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s\-]+)(?=\s|$)/g, '<b class="text-yellow-400">@$1</b>')}</div>` : ''}
+                                ${m.mediaUrl ? `<img src="${m.thumbUrl || m.mediaUrl}" onclick="window.open('${m.mediaUrl}')" class="rounded-lg mt-2 max-w-full cursor-pointer">` : ''}
+                                ${m.ytId ? `<div class="mt-2 rounded-lg overflow-hidden border border-white/10"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${m.ytId}" frameborder="0" allowfullscreen></iframe></div>` : ''}
                             </div>
                         </div>`;
                     }
@@ -157,7 +153,7 @@
                 const c = document.getElementById('chatContainer'); c.innerHTML = html; c.scrollTop = c.scrollHeight;
                 if (!primaIncarcare && snap.docChanges().some(c => c.type === "added")) {
                     const nou = snap.docs[snap.docs.length-1].data();
-                    if (nou.uid !== userLogat?.uid) trimiteNotificare(nou.expeditor || "Sistem", nou.text || "Imagine nouă");
+                    if (nou.uid !== userLogat?.uid) trimiteNotificare(nou.expeditor || "Sistem", nou.text || "Mesaj nou");
                 }
                 primaIncarcare = false;
                 document.getElementById('inputZona').style.display = userLogat ? 'flex' : 'none';
@@ -175,14 +171,12 @@
             <div class="p-4 border-b border-slate-800 bg-black/20 text-center uppercase font-black italic text-white tracking-widest">Chat & Activitate</div>
             <div id="chatContainer" class="flex-1 overflow-y-auto p-4 scroll-smooth flex flex-col"></div>
             <div id="replyBar"></div>
+            <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl z-50 shadow-2xl"></div>
             <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-3 bg-black/40 border-t border-slate-800 flex items-center gap-2">
                 <label id="btnUpload" class="cursor-pointer bg-slate-800 w-12 h-12 flex items-center justify-center rounded-xl">📷<input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(event)"></label>
-                <input type="text" id="chatInput" placeholder="Mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-3 rounded-xl text-white text-sm outline-none">
+                <input type="text" id="chatInput" autocomplete="off" oninput="handleTagging(this.value)" placeholder="Mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-3 rounded-xl text-white text-sm outline-none">
                 <button class="bg-blue-600 text-white px-5 h-12 rounded-xl font-black uppercase text-[10px]">></button>
             </form>
-        </div>
-        <div id="imageModal" onclick="inchidePoza()" class="fixed inset-0 bg-black/95 z-[100] hidden items-center justify-center p-4">
-            <img id="fullImage" src="" class="max-w-full max-h-full rounded-lg">
         </div>
     </div>
 </body>
