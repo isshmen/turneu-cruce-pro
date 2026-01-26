@@ -31,7 +31,6 @@
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
         const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "Anonim";
 
-        // Cere permisiune notificări
         window.cerePermisiuneNotificari = () => {
             if ("Notification" in window) {
                 Notification.requestPermission().then(p => {
@@ -40,23 +39,20 @@
             }
         };
 
-        // Trimite Notificare Locală
         const trimiteNotificare = (msg) => {
             if (!userLogat || msg.uid === userLogat.uid) return;
-            const numeCurat = curataNume(userLogat.displayName);
-            if (msg.text.includes(`@${numeCurat}`) && Notification.permission === "granted") {
-                new Notification("Ai fost menționat!", { body: `${msg.expeditor}: ${msg.text}`, icon: '/favicon.ico' });
+            const numeEu = curataNume(userLogat.displayName);
+            if (msg.text.includes(`@${numeEu}`) && Notification.permission === "granted") {
+                new Notification("Ai fost menționat!", { body: `${msg.expeditor}: ${msg.text}` });
             }
         };
 
-        // Logică Autocomplete @
         window.handleTagging = (val) => {
             const index = val.lastIndexOf('@');
             const sugestiiDiv = document.getElementById('sugestiiTag');
             if (index !== -1) {
                 const search = val.substring(index + 1).toLowerCase();
                 const matches = listaJucatori.filter(n => n.toLowerCase().includes(search)).slice(0, 5);
-                
                 if (matches.length > 0) {
                     sugestiiDiv.innerHTML = matches.map(n => `<div onclick="aplicaTag('${n}')" class="p-3 hover:bg-blue-600 cursor-pointer border-b border-white/10 text-xs font-bold uppercase">${n}</div>`).join('');
                     sugestiiDiv.classList.remove('hidden');
@@ -79,7 +75,7 @@
             const bar = document.getElementById('replyBar');
             bar.innerHTML = `<div class="flex justify-between items-center bg-blue-900/40 p-3 text-[10px] border-l-4 border-blue-500 animate-pulse">
                 <span class="text-blue-200">Răspuns către <b>${nume}</b>: ${replyTo.text}</span>
-                <button onclick="cancelReply()" class="text-white bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black">X</button>
+                <button onclick="cancelReply()" class="text-white bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black uppercase">X</button>
             </div>`;
             document.getElementById('chatInput').focus();
         };
@@ -116,17 +112,17 @@
 
         onAuthStateChanged(auth, async (u) => {
             userLogat = u;
-            // Luăm lista de jucători pentru @
             const s = await getDoc(doc(db, "setari", "turnee"));
-            if(s.exists()) listaJucatori = s.data().inscrisi_JOKER || [];
+            if(s.exists()) {
+                const echipeRaw = s.data().inscrisi_JOKER || [];
+                listaJucatori = [...new Set(echipeRaw.flatMap(echipa => echipa.split(/[&+/]/).map(n => n.trim())))];
+            }
 
             const q = query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(50));
             onSnapshot(q, (snapshot) => {
                 const chatContainer = document.getElementById('chatContainer');
                 let html = "";
-                snapshot.docChanges().forEach(change => {
-                    if (change.type === "added") trimiteNotificare(change.doc.data());
-                });
+                snapshot.docChanges().forEach(change => { if (change.type === "added") trimiteNotificare(change.doc.data()); });
 
                 snapshot.forEach((d) => {
                     const m = d.data(); if (m.sters) return;
@@ -134,7 +130,7 @@
                     const ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 
                     if (esteSistem) {
-                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-4 group relative">
+                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-4 relative group">
                             <p class="text-[10px] font-bold text-blue-400 uppercase italic">📢 ${m.text}</p>
                             <span class="text-[8px] text-slate-600 block mt-1">${ora}</span>
                         </div>`;
@@ -150,7 +146,9 @@
                             </div>
                             <div class="${colBula} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-lg relative">
                                 ${m.reply ? `<div class="text-[9px] opacity-60 border-l-2 border-white/30 pl-2 mb-2 italic bg-black/20 p-1 rounded">@${m.reply.nume}: ${m.reply.text}</div>` : ''}
-                                <div class="${esteAdminMsg ? 'text-green-400' : 'text-white'}">${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s]+)/g, '<b class="text-yellow-400">@$1</b>')}</div>
+                                <div class="${esteAdminMsg ? 'text-green-400' : 'text-white'}">
+                                    ${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s\-]+)(?=\s|$)/g, '<b class="text-yellow-400">@$1</b>')}
+                                </div>
                                 ${m.editat ? `<span class="text-[7px] opacity-30 block mt-1 italic font-bold">EDITAT</span>` : ''}
                             </div>
                         </div>`;
@@ -170,24 +168,19 @@
                 <a href="/" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg">← Acasă</a>
                 <button onclick="cerePermisiuneNotificari()" class="bg-slate-800 text-[9px] font-black uppercase px-4 py-3 rounded-xl text-slate-400">🔔 Notificări</button>
             </div>
-            
             <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[70vh] overflow-hidden shadow-2xl relative">
                 <div class="p-6 border-b border-slate-800 bg-black/20 text-center">
                     <h3 class="text-xl font-black italic uppercase text-white tracking-widest">Chat & Activitate</h3>
                 </div>
-                
                 <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth flex flex-col"></div>
-
                 <div id="replyBar"></div>
-                <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl shadow-2xl z-50 overflow-hidden"></div>
-
+                <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl shadow-2xl z-50 overflow-hidden max-h-40 overflow-y-auto"></div>
                 <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex gap-2" style="display: none;">
                     <input type="text" id="chatInput" autocomplete="off" oninput="handleTagging(this.value)" placeholder="Mesaj... (@nume)" class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500 transition-all">
                     <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px]">Trimite</button>
                 </form>
             </div>
         </div>
-
         <footer class="mt-10 py-10 border-t border-slate-900 text-center">
             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 px-4"> 
                 &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500 hover:text-blue-400">Vali Dragomir</a>. Poti sustine proiectul cu o donatie pe <a href="http://revolut.me/isshmen" target="_blank" class="text-blue-500 hover:text-blue-400">Revolut</a>
