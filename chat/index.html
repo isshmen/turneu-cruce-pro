@@ -122,10 +122,17 @@
             onSnapshot(q, (snapshot) => {
                 const chatContainer = document.getElementById('chatContainer');
                 let html = "";
+                
                 snapshot.docChanges().forEach(change => { if (change.type === "added") trimiteNotificare(change.doc.data()); });
 
                 snapshot.forEach((d) => {
                     const m = d.data(); if (m.sters) return;
+
+                    // "Învățăm" nume noi care scriu în chat pentru @tag
+                    if (m.expeditor && !listaJucatori.includes(m.expeditor)) {
+                        listaJucatori.push(m.expeditor);
+                    }
+
                     const esteSistem = m.tip === 'sistem', esteEu = m.uid === userLogat?.uid, esteAdminMsg = m.esteAdmin === true;
                     const ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 
@@ -146,10 +153,10 @@
                             </div>
                             <div class="${colBula} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-lg relative">
                                 ${m.reply ? `<div class="text-[9px] opacity-60 border-l-2 border-white/30 pl-2 mb-2 italic bg-black/20 p-1 rounded">@${m.reply.nume}: ${m.reply.text}</div>` : ''}
-                                <div class="${esteAdminMsg ? 'text-green-400' : 'text-white'}">
+                                <div class="${esteAdminMsg ? 'text-green-400 font-medium' : 'text-white'}">
                                     ${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s\-]+)(?=\s|$)/g, '<b class="text-yellow-400">@$1</b>')}
                                 </div>
-                                ${m.editat ? `<span class="text-[7px] opacity-30 block mt-1 italic font-bold">EDITAT</span>` : ''}
+                                ${m.editat ? `<span class="text-[7px] opacity-30 block mt-1 italic font-bold uppercase tracking-tighter">Editat</span>` : ''}
                             </div>
                         </div>`;
                     }
@@ -165,22 +172,27 @@
     <div class="max-w-2xl mx-auto min-h-screen flex flex-col">
         <div class="flex-1">
             <div class="flex justify-between items-center mb-6">
-                <a href="/" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg">← Acasă</a>
-                <button onclick="cerePermisiuneNotificari()" class="bg-slate-800 text-[9px] font-black uppercase px-4 py-3 rounded-xl text-slate-400">🔔 Notificări</button>
+                <a href="/" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-green-700 transition-colors">← Acasă</a>
+                <button onclick="cerePermisiuneNotificari()" class="bg-slate-800 text-[9px] font-black uppercase px-4 py-3 rounded-xl text-slate-400 hover:text-white transition-all">🔔 Notificări</button>
             </div>
+            
             <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[70vh] overflow-hidden shadow-2xl relative">
                 <div class="p-6 border-b border-slate-800 bg-black/20 text-center">
                     <h3 class="text-xl font-black italic uppercase text-white tracking-widest">Chat & Activitate</h3>
                 </div>
+                
                 <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth flex flex-col"></div>
+
                 <div id="replyBar"></div>
                 <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl shadow-2xl z-50 overflow-hidden max-h-40 overflow-y-auto"></div>
+
                 <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex gap-2" style="display: none;">
                     <input type="text" id="chatInput" autocomplete="off" oninput="handleTagging(this.value)" placeholder="Mesaj... (@nume)" class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500 transition-all">
-                    <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px]">Trimite</button>
+                    <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px] hover:bg-blue-700 transition-colors">Trimite</button>
                 </form>
             </div>
         </div>
+
         <footer class="mt-10 py-10 border-t border-slate-900 text-center">
             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 px-4"> 
                 &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500 hover:text-blue-400">Vali Dragomir</a>. Poti sustine proiectul cu o donatie pe <a href="http://revolut.me/isshmen" target="_blank" class="text-blue-500 hover:text-blue-400">Revolut</a>
