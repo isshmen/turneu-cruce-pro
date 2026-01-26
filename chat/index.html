@@ -25,11 +25,26 @@
 
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null;
+        let replyTo = null;
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
         const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "Anonim";
 
-        // Trimitere Mesaj
+        window.setReply = (id, nume, text) => {
+            replyTo = { id, nume, text: text.substring(0, 40) + "..." };
+            const bar = document.getElementById('replyBar');
+            bar.innerHTML = `<div class="flex justify-between items-center bg-blue-900/40 p-3 text-[10px] border-l-4 border-blue-500 animate-pulse">
+                <span class="text-blue-200">Răspuns către <b>${nume}</b>: ${replyTo.text}</span>
+                <button onclick="cancelReply()" class="text-white bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black">X</button>
+            </div>`;
+            document.getElementById('chatInput').focus();
+        };
+
+        window.cancelReply = () => {
+            replyTo = null;
+            document.getElementById('replyBar').innerHTML = "";
+        };
+
         window.trimiteMesaj = async (e) => {
             e.preventDefault();
             const input = document.getElementById('chatInput');
@@ -41,12 +56,22 @@
                 expeditor: curataNume(userLogat.displayName),
                 uid: userLogat.uid,
                 timestamp: Date.now(),
-                tip: 'user'
+                tip: 'user',
+                reply: replyTo,
+                esteAdmin: isAdmin()
             });
             input.value = "";
+            cancelReply();
         };
 
-        // Ștergere (Admin)
+        window.editeazaMesaj = async (id, uid, textVechi) => {
+            if (userLogat.uid !== uid && !isAdmin()) return;
+            const noulText = prompt("Editează mesajul:", textVechi);
+            if (noulText && noulText !== textVechi) {
+                await updateDoc(doc(db, "chat", id), { text: noulText, editat: true });
+            }
+        };
+
         window.stergeMesaj = async (id) => {
             if (!isAdmin()) return;
             if (confirm("Ștergi mesajul?")) {
@@ -54,16 +79,6 @@
             }
         };
 
-        // Editare (Admin)
-        window.editeazaMesaj = async (id, textVechi) => {
-            if (!isAdmin()) return;
-            const noulText = prompt("Editează mesajul:", textVechi);
-            if (noulText && noulText !== textVechi) {
-                await updateDoc(doc(db, "chat", id), { text: noulText });
-            }
-        };
-
-        // Render Real-time
         onAuthStateChanged(auth, (u) => {
             userLogat = u;
             const q = query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(50));
@@ -77,28 +92,35 @@
                     
                     const esteSistem = m.tip === 'sistem';
                     const esteEu = m.uid === userLogat?.uid;
+                    const esteAdminMsg = m.esteAdmin === true;
                     const ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 
                     if (esteSistem) {
-                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-2 relative group">
+                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-4 relative group">
                             <p class="text-[10px] font-bold text-blue-400 uppercase italic">📢 ${m.text}</p>
                             <span class="text-[8px] text-slate-600 block mt-1">${ora}</span>
                             ${isAdmin() ? `<div class="hidden group-hover:flex gap-2 justify-center mt-2">
-                                <button onclick="editeazaMesaj('${d.id}', '${m.text}')" class="text-blue-500 text-[8px] uppercase font-black">[Edit]</button>
-                                <button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] uppercase font-black">[Șterge]</button>
+                                <button onclick="editeazaMesaj('${d.id}', '${m.uid}', '${m.text}')" class="text-blue-500 text-[8px] uppercase font-black">[Edit]</button>
+                                <button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] uppercase font-black">[X]</button>
                             </div>` : ''}
                         </div>`;
                     } else {
+                        const culoareNume = esteAdminMsg ? 'text-green-500' : 'text-slate-500';
+                        const culoareBula = esteAdminMsg ? 'border border-green-500/30 bg-green-900/20' : (esteEu ? 'bg-blue-600 shadow-blue-900/20' : 'bg-slate-800');
+
                         html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4 group">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-[8px] font-black uppercase text-slate-500">${m.expeditor} • ${ora}</span>
-                                ${isAdmin() ? `
-                                    <button onclick="editeazaMesaj('${d.id}', '${m.text}')" class="hidden group-hover:inline text-blue-500 text-[8px] font-black">[Edit]</button>
-                                    <button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] font-black">[X]</button>
-                                ` : ''}
+                            <div class="flex items-center gap-2 mb-1 px-2">
+                                <span class="text-[8px] font-black uppercase ${culoareNume}">${m.expeditor} • ${ora}</span>
+                                <button onclick="setReply('${d.id}', '${m.expeditor}', '${m.text}')" class="hidden group-hover:inline text-[8px] font-bold text-slate-500 hover:text-white uppercase">Reply</button>
+                                ${(esteEu || isAdmin()) ? `<button onclick="editeazaMesaj('${d.id}', '${m.uid}', '${m.text}')" class="hidden group-hover:inline text-blue-500 text-[8px] font-black uppercase">Edit</button>` : ''}
+                                ${isAdmin() ? `<button onclick="stergeMesaj('${d.id}')" class="text-red-500 text-[8px] font-black uppercase">X</button>` : ''}
                             </div>
-                            <div class="${esteEu ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-200'} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-md">
-                                ${m.text}
+                            <div class="${culoareBula} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-lg">
+                                ${m.reply ? `<div class="text-[9px] opacity-60 border-l-2 border-white/30 pl-2 mb-2 italic bg-black/20 p-1 rounded">@${m.reply.nume}: ${m.reply.text}</div>` : ''}
+                                <div class="${esteAdminMsg ? 'text-green-400 font-medium' : 'text-white'}">
+                                    ${m.text.replace(/@(\w+\s?\w*)/g, '<b class="text-yellow-400">@$1</b>')}
+                                </div>
+                                ${m.editat ? `<span class="text-[7px] opacity-30 block mt-1 uppercase italic font-bold">Editat</span>` : ''}
                             </div>
                         </div>`;
                     }
@@ -114,19 +136,21 @@
 <body class="bg-black text-slate-300 font-sans p-4">
     <div class="max-w-2xl mx-auto min-h-screen flex flex-col">
         <div class="flex-1">
-            <a href="/" class="inline-block bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg">← Acasă</a>
+            <a href="/" class="inline-block bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg hover:bg-green-700 transition-colors">← Acasă</a>
             
-            <div class="bg-slate-900 rounded-[2rem] border border-slate-800 flex flex-col h-[75vh] overflow-hidden shadow-2xl">
+            <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[75vh] overflow-hidden shadow-2xl relative">
                 <div class="p-6 border-b border-slate-800 bg-black/20 text-center">
-                    <h3 class="text-xl font-black italic uppercase text-white">Chat & Activitate</h3>
+                    <h3 class="text-xl font-black italic uppercase text-white tracking-widest">Chat & Activitate</h3>
                 </div>
                 
-                <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth">
+                <div id="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth flex flex-col">
                     </div>
 
+                <div id="replyBar"></div>
+
                 <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex gap-2" style="display: none;">
-                    <input type="text" id="chatInput" placeholder="Scrie un mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500">
-                    <button class="bg-blue-600 text-white px-6 rounded-xl font-black uppercase text-[10px]">Trimite</button>
+                    <input type="text" id="chatInput" autocomplete="off" placeholder="Scrie un mesaj... (folosește @nume)" class="flex-1 bg-slate-900 border border-slate-800 p-4 rounded-xl text-white text-sm outline-none focus:border-blue-500 transition-all">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-black uppercase text-[10px] transition-colors">Trimite</button>
                 </form>
             </div>
         </div>
