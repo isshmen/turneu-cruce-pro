@@ -9,13 +9,12 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, collection, setDoc, onSnapshot, query, orderBy, limitToLast, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
             authDomain: "turneu-cruce.firebaseapp.com",
             projectId: "turneu-cruce",
-            storageBucket: "turneu-cruce.appspot.com",
+            storageBucket: "turneu-cruce.firebasestorage.app",
             messagingSenderId: "169022341825",
             appId: "1:169022341825:web:53678e9ce275654bfe4a40"
         };
@@ -23,20 +22,19 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
+        const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
+        const IMGBB_API = "3fead71bfe9e9a00daee5948cb94fdf3";
         let userLogat = null;
+        let replyTo = null;
         let listaJucatori = [];
 
-        // --- FUNCȚII UTILS ---
-        const extractYTId = (url) => {
-            const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[7].length == 11) ? match[7] : false;
-        };
+        const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
+        const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "Anonim";
 
+        // --- OPTIMIZARE POZA (800px, 70% calitate) ---
         const optimizeImage = (file) => {
-            return new Promise((resolve) => {
+            return new Promise((res) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = (e) => {
@@ -44,38 +42,49 @@
                     img.src = e.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-                        if (width > 1000) { height *= 1000 / width; width = 1000; }
-                        canvas.width = width; canvas.height = height;
+                        let w = img.width, h = img.height;
+                        if (w > 800) { h *= 800 / w; w = 800; }
+                        canvas.width = w; canvas.height = h;
                         const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        canvas.toBlob((blob) => res(blob), 'image/jpeg', 0.7);
                     };
                 };
             });
         };
 
-        // --- ACTIONS ---
-        window.handleFileUpload = async (e) => {
-            const file = e.target.files[0];
+        // --- UPLOAD IMGBB ---
+        window.handleFileUpload = async (event) => {
+            const file = event.target.files[0];
             if (!file || !userLogat) return;
-            
             const btn = document.getElementById('btnUpload');
             btn.innerHTML = "⏳";
-            
-            const optimizedBlob = await optimizeImage(file);
-            const fileName = `chat/${Date.now()}_${userLogat.uid}.jpg`;
-            const storageRef = ref(storage, fileName);
-            
-            await uploadBytes(storageRef, optimizedBlob);
-            const url = await getDownloadURL(storageRef);
-            
-            await setDoc(doc(collection(db, "chat")), {
-                text: "", expeditor: userLogat.displayName, uid: userLogat.uid,
-                timestamp: Date.now(), tip: 'user', mediaUrl: url
-            });
+
+            try {
+                const blob = await optimizeImage(file);
+                const formData = new FormData();
+                formData.append("image", blob);
+
+                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API}`, {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    await setDoc(doc(collection(db, "chat")), {
+                        text: "", expeditor: curataNume(userLogat.displayName),
+                        uid: userLogat.uid, timestamp: Date.now(), tip: 'user',
+                        mediaUrl: data.data.url, thumbUrl: data.data.thumb.url
+                    });
+                }
+            } catch (err) { alert("Eroare la upload!"); }
             btn.innerHTML = "📷";
+        };
+
+        const extractYTId = (t) => {
+            const match = t.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
+            return (match && match[7].length == 11) ? match[7] : false;
         };
 
         window.trimiteMesaj = async (e) => {
@@ -84,62 +93,102 @@
             const text = input.value.trim();
             if (!text || !userLogat) return;
 
-            const ytId = extractYTId(text);
             await setDoc(doc(collection(db, "chat")), {
-                text: text, expeditor: userLogat.displayName, uid: userLogat.uid,
-                timestamp: Date.now(), tip: 'user', ytId: ytId || null
+                text: text, expeditor: curataNume(userLogat.displayName),
+                uid: userLogat.uid, timestamp: Date.now(), tip: 'user',
+                reply: replyTo, esteAdmin: isAdmin(), ytId: extractYTId(text)
             });
             input.value = "";
+            window.cancelReply();
         };
 
-        // --- RENDER ---
-        onAuthStateChanged(auth, (u) => {
-            userLogat = u;
-            const q = query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(30));
-            onSnapshot(q, (snaps) => {
-                const container = document.getElementById('chatContainer');
-                let html = "";
-                snaps.forEach(d => {
-                    const m = d.data();
-                    const esteEu = m.uid === userLogat?.uid;
-                    const ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
+        window.setReply = (id, nume, text) => {
+            replyTo = { id, nume, text: text.substring(0, 30) + "..." };
+            document.getElementById('replyBar').innerHTML = `
+                <div class="flex justify-between items-center bg-blue-900/40 p-3 text-[10px] border-l-4 border-blue-500">
+                    <span class="text-blue-200">Răspuns către <b>${nume}</b></span>
+                    <button onclick="cancelReply()" class="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black">X</button>
+                </div>`;
+            document.getElementById('chatInput').focus();
+        };
 
-                    html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4">
-                        <span class="text-[8px] uppercase text-slate-500 mb-1">${m.expeditor} • ${ora}</span>
-                        <div class="${esteEu ? 'bg-blue-600' : 'bg-slate-800'} p-3 rounded-2xl max-w-[85%] shadow-lg">
-                            ${m.text ? `<p class="text-sm text-white">${m.text}</p>` : ''}
-                            ${m.mediaUrl ? `<img src="${m.mediaUrl}" onclick="window.open('${m.mediaUrl}')" class="rounded-lg mt-1 max-w-[200px] cursor-pointer hover:opacity-80">` : ''}
-                            ${m.ytId ? `<div class="mt-2 rounded-lg overflow-hidden border border-white/10">
-                                <iframe width="100%" height="150" src="https://www.youtube.com/embed/${m.ytId}" frameborder="0" allowfullscreen></iframe>
-                            </div>` : ''}
-                        </div>
-                    </div>`;
+        window.cancelReply = () => { replyTo = null; document.getElementById('replyBar').innerHTML = ""; };
+
+        window.handleTagging = (val) => {
+            const idx = val.lastIndexOf('@');
+            const div = document.getElementById('sugestiiTag');
+            if (idx !== -1) {
+                const s = val.substring(idx + 1).toLowerCase();
+                const matches = listaJucatori.filter(n => n.toLowerCase().includes(s)).slice(0, 5);
+                if (matches.length > 0) {
+                    div.innerHTML = matches.map(n => `<div onclick="aplicaTag('${n}')" class="p-3 hover:bg-blue-600 cursor-pointer border-b border-white/10 text-xs font-bold uppercase">${n}</div>`).join('');
+                    div.classList.remove('hidden'); return;
+                }
+            }
+            div.classList.add('hidden');
+        };
+
+        window.aplicaTag = (n) => {
+            const i = document.getElementById('chatInput');
+            i.value = i.value.substring(0, i.value.lastIndexOf('@')) + `@${n} `;
+            document.getElementById('sugestiiTag').classList.add('hidden'); i.focus();
+        };
+
+        onAuthStateChanged(auth, async (u) => {
+            userLogat = u;
+            const s = await getDoc(doc(db, "setari", "turnee"));
+            if(s.exists()) listaJucatori = [...new Set((s.data().inscrisi_JOKER || []).flatMap(e => e.split(/[&+/]/).map(n => n.trim())))];
+
+            onSnapshot(query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(50)), (snap) => {
+                let html = "";
+                snap.forEach(d => {
+                    const m = d.data(); if (m.sters) return;
+                    if (m.expeditor && !listaJucatori.includes(m.expeditor)) listaJucatori.push(m.expeditor);
+                    const esteEu = m.uid === userLogat?.uid, esteAdminMsg = m.esteAdmin === true, ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
+                    
+                    if (m.tip === 'sistem') {
+                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-4 text-[10px] font-bold text-blue-400 uppercase italic">📢 ${m.text}</div>`;
+                    } else {
+                        const colNume = esteAdminMsg ? 'text-green-500' : 'text-slate-500';
+                        const colBula = esteAdminMsg ? 'border border-green-500/30 bg-green-900/20' : (esteEu ? 'bg-blue-600' : 'bg-slate-800');
+                        html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4 group">
+                            <div class="flex items-center gap-2 mb-1 px-2 text-[8px] font-black uppercase ${colNume}">
+                                <span>${m.expeditor} • ${ora}</span>
+                                <button onclick="setReply('${d.id}', '${m.expeditor}', '${m.text}')" class="hidden group-hover:inline text-slate-400">Reply</button>
+                            </div>
+                            <div class="${colBula} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-lg relative">
+                                ${m.reply ? `<div class="text-[9px] opacity-60 border-l-2 border-white/30 pl-2 mb-2 italic bg-black/20 p-1 rounded">@${m.reply.nume}: ${m.reply.text}</div>` : ''}
+                                ${m.text ? `<div class="${esteAdminMsg ? 'text-green-400' : 'text-white'}">${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s\-]+)(?=\s|$)/g, '<b class="text-yellow-400">@$1</b>')}</div>` : ''}
+                                ${m.mediaUrl ? `<img src="${m.thumbUrl || m.mediaUrl}" onclick="window.open('${m.mediaUrl}')" class="rounded-lg mt-2 max-w-full h-auto cursor-pointer border border-white/10 hover:opacity-80">` : ''}
+                                ${m.ytId ? `<div class="mt-2 rounded-lg overflow-hidden border border-white/10"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${m.ytId}" frameborder="0" allowfullscreen></iframe></div>` : ''}
+                            </div>
+                        </div>`;
+                    }
                 });
-                container.innerHTML = html;
-                container.scrollTop = container.scrollHeight;
+                const c = document.getElementById('chatContainer'); c.innerHTML = html; c.scrollTop = c.scrollHeight;
                 document.getElementById('inputZona').style.display = userLogat ? 'flex' : 'none';
             });
         });
     </script>
 </head>
-<body class="bg-black text-slate-300 p-4">
-    <div class="max-w-2xl mx-auto flex flex-col h-screen">
-        <a href="/" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs mb-4 inline-block w-fit">← Acasă</a>
-        
-        <div class="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col flex-1 overflow-hidden">
-            <div id="chatContainer" class="flex-1 overflow-y-auto p-4 flex flex-col"></div>
-            
-            <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-4 bg-black/40 border-t border-slate-800 flex items-center gap-2" style="display:none">
-                <label id="btnUpload" class="cursor-pointer bg-slate-800 w-12 h-12 flex items-center justify-center rounded-xl hover:bg-slate-700">
-                    📷 <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(e)">
+<body class="bg-black text-slate-300 font-sans p-4">
+    <div class="max-w-2xl mx-auto min-h-screen flex flex-col">
+        <a href="/" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg inline-block w-fit">← Acasă</a>
+        <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[70vh] overflow-hidden shadow-2xl relative">
+            <div class="p-4 border-b border-slate-800 bg-black/20 text-center uppercase font-black italic text-white tracking-widest">Chat & Activitate</div>
+            <div id="chatContainer" class="flex-1 overflow-y-auto p-4 scroll-smooth flex flex-col"></div>
+            <div id="replyBar"></div>
+            <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl z-50 overflow-hidden shadow-2xl"></div>
+            <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-3 bg-black/40 border-t border-slate-800 flex items-center gap-2" style="display:none">
+                <label id="btnUpload" class="cursor-pointer bg-slate-800 w-12 h-12 flex items-center justify-center rounded-xl hover:bg-slate-700 transition-all shadow-inner">
+                    📷 <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
                 </label>
-                <input type="text" id="chatInput" placeholder="Mesaj sau link YT..." class="flex-1 bg-slate-900 border-none p-4 rounded-xl text-white outline-none">
-                <button class="bg-blue-600 p-4 rounded-xl font-bold">></button>
+                <input type="text" id="chatInput" autocomplete="off" oninput="handleTagging(this.value)" placeholder="Mesaj sau link YT..." class="flex-1 bg-slate-900 border border-slate-800 p-3 rounded-xl text-white text-sm outline-none focus:border-blue-500">
+                <button class="bg-blue-600 text-white px-5 h-12 rounded-xl font-black uppercase text-[10px]">></button>
             </form>
         </div>
-        
-        <footer class="py-6 text-center text-[10px] text-slate-600 uppercase tracking-widest">
-            &copy; 2026 Creat de Vali Dragomir
+        <footer class="mt-auto py-10 border-t border-slate-900 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"> 
+            &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500">Vali Dragomir</a>. Susține proiectul pe <a href="http://revolut.me/isshmen" target="_blank" class="text-blue-500">Revolut</a>
         </footer>
     </div>
 </body>
