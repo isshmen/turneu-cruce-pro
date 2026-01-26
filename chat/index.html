@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, collection, setDoc, onSnapshot, query, orderBy, limitToLast, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, collection, setDoc, onSnapshot, query, orderBy, limitToLast, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
@@ -32,20 +32,25 @@
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
         const curataNume = (n) => n ? n.replace(/\s*\(.*?\)\s*/g, "").trim() : "Anonim";
 
+        // --- ADMIN & EDIT FUNCTIONS ---
+        window.stergeMesaj = async (id) => {
+            if (confirm("Ștergi acest mesaj?")) await deleteDoc(doc(db, "chat", id));
+        };
+
+        window.editeazaMesaj = async (id, textVechi) => {
+            const nouText = prompt("Editează mesajul:", textVechi);
+            if (nouText && nouText !== textVechi) await updateDoc(doc(db, "chat", id), { text: nouText, editat: true });
+        };
+
         window.deschidePoza = (url) => {
             const modal = document.getElementById('imageModal');
-            const fullImg = document.getElementById('fullImage');
-            fullImg.src = url;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            document.getElementById('fullImage').src = url;
+            modal.classList.replace('hidden', 'flex');
         };
 
-        window.inchidePoza = () => {
-            const modal = document.getElementById('imageModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        };
+        window.inchidePoza = () => document.getElementById('imageModal').classList.replace('flex', 'hidden');
 
+        // --- MEDIA & UPLOAD ---
         const optimizeImage = (file) => {
             return new Promise((res) => {
                 const reader = new FileReader();
@@ -60,7 +65,7 @@
                         canvas.width = w; canvas.height = h;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, w, h);
-                        canvas.toBlob((blob) => res(blob), 'image/jpeg', 0.8);
+                        canvas.toBlob((blob) => res(blob), 'image/jpeg', 0.7);
                     };
                 };
             });
@@ -107,13 +112,10 @@
             window.cancelReply();
         };
 
+        // --- REPLY & TAGGING ---
         window.setReply = (id, nume, text) => {
             replyTo = { id, nume, text: text.substring(0, 30) + "..." };
-            document.getElementById('replyBar').innerHTML = `
-                <div class="flex justify-between items-center bg-blue-900/40 p-3 text-[10px] border-l-4 border-blue-500">
-                    <span class="text-blue-200">Răspuns către <b>${nume}</b></span>
-                    <button onclick="cancelReply()" class="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black">X</button>
-                </div>`;
+            document.getElementById('replyBar').innerHTML = `<div class="flex justify-between items-center bg-blue-900/40 p-3 text-[10px] border-l-4 border-blue-500"><span class="text-blue-200">Răspuns către <b>${nume}</b></span><button onclick="cancelReply()" class="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black">X</button></div>`;
             document.getElementById('chatInput').focus();
         };
 
@@ -147,24 +149,35 @@
             onSnapshot(query(collection(db, "chat"), orderBy("timestamp", "asc"), limitToLast(50)), (snap) => {
                 let html = "";
                 snap.forEach(d => {
-                    const m = d.data(); if (m.sters) return;
-                    if (m.expeditor && !listaJucatori.includes(m.expeditor)) listaJucatori.push(m.expeditor);
-                    const esteEu = m.uid === userLogat?.uid, esteAdminMsg = m.esteAdmin === true, ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
+                    const m = d.data(), id = d.id;
+                    const esteEu = m.uid === userLogat?.uid, esteAdminMsg = m.esteAdmin === true;
+                    const ora = new Date(m.timestamp).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
                     
+                    const controls = `<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="setReply('${id}', '${m.expeditor}', '${m.text}')" class="text-slate-400 hover:text-white text-[8px] uppercase font-bold">Reply</button>
+                        ${esteEu ? `<button onclick="editeazaMesaj('${id}', '${m.text}')" class="text-blue-400 hover:text-white text-[8px] uppercase font-bold">Edit</button>` : ''}
+                        ${(esteEu || isAdmin()) ? `<button onclick="stergeMesaj('${id}')" class="text-red-500 hover:text-white text-[8px] uppercase font-bold">Șterge</button>` : ''}
+                    </div>`;
+
                     if (m.tip === 'sistem') {
-                        html += `<div class="bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-4 text-[10px] font-bold text-blue-400 uppercase">📢 ${m.text}</div>`;
+                        html += `<div class="group relative bg-blue-900/10 border border-blue-500/20 p-3 rounded-xl text-center my-4 text-[10px] font-bold text-blue-400 uppercase">
+                            📢 ${m.text}
+                            <div class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100">
+                                ${isAdmin() ? `<button onclick="stergeMesaj('${id}')" class="text-red-500 text-[8px]">X</button>` : ''}
+                            </div>
+                        </div>`;
                     } else {
                         const colNume = esteAdminMsg ? 'text-green-500' : 'text-slate-500';
-                        const colBula = esteAdminMsg ? 'border border-green-500/30 bg-green-900/20' : (esteEu ? 'bg-blue-600' : 'bg-slate-800');
+                        const colBula = esteAdminMsg ? 'border border-green-500/30 bg-green-900/20' : (esteEu ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-100');
                         html += `<div class="flex flex-col ${esteEu ? 'items-end' : 'items-start'} mb-4 group">
-                            <div class="flex items-center gap-2 mb-1 px-2 text-[8px] font-black uppercase ${colNume}">
-                                <span>${m.expeditor} • ${ora}</span>
-                                <button onclick="setReply('${d.id}', '${m.expeditor}', '${m.text}')" class="hidden group-hover:inline text-slate-400 uppercase">Reply</button>
+                            <div class="flex items-center gap-3 mb-1 px-2 text-[8px] font-black uppercase ${colNume}">
+                                <span>${m.expeditor} • ${ora} ${m.editat ? '(editat)' : ''}</span>
+                                ${controls}
                             </div>
                             <div class="${colBula} px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-lg">
                                 ${m.reply ? `<div class="text-[9px] opacity-60 border-l-2 border-white/30 pl-2 mb-2 italic bg-black/20 p-1 rounded">@${m.reply.nume}: ${m.reply.text}</div>` : ''}
-                                ${m.text ? `<div class="${esteAdminMsg ? 'text-green-400' : 'text-white'}">${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s\-]+)(?=\s|$)/g, '<b class="text-yellow-400">@$1</b>')}</div>` : ''}
-                                ${m.mediaUrl ? `<img src="${m.thumbUrl || m.mediaUrl}" onclick="deschidePoza('${m.mediaUrl}')" class="rounded-lg mt-2 max-w-full h-auto cursor-pointer border border-white/10 hover:scale-[1.02] transition-transform">` : ''}
+                                ${m.text ? `<div>${m.text.replace(/@([a-zA-ZĂÂÎŞŢăâîşţ\s\-]+)(?=\s|$)/g, '<b class="text-yellow-400">@$1</b>')}</div>` : ''}
+                                ${m.mediaUrl ? `<img src="${m.thumbUrl || m.mediaUrl}" onclick="deschidePoza('${m.mediaUrl}')" class="rounded-lg mt-2 max-w-full cursor-pointer border border-white/10 hover:scale-[1.01] transition-transform">` : ''}
                                 ${m.ytId ? `<div class="mt-2 rounded-lg overflow-hidden border border-white/10"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${m.ytId}" frameborder="0" allowfullscreen></iframe></div>` : ''}
                             </div>
                         </div>`;
@@ -179,28 +192,23 @@
 <body class="bg-black text-slate-300 font-sans p-4">
     <div class="max-w-2xl mx-auto min-h-screen flex flex-col relative">
         <a href="/" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] mb-6 shadow-lg inline-block w-fit">← Acasă</a>
-        
-        <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[70vh] overflow-hidden shadow-2xl relative">
-            <div class="p-4 border-b border-slate-800 bg-black/20 text-center uppercase font-black italic text-white tracking-widest">Chat & Activitate</div>
+        <div class="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[75vh] overflow-hidden shadow-2xl relative">
             <div id="chatContainer" class="flex-1 overflow-y-auto p-4 scroll-smooth flex flex-col"></div>
             <div id="replyBar"></div>
-            <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl z-50 overflow-hidden shadow-2xl"></div>
-            <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-3 bg-black/40 border-t border-slate-800 flex items-center gap-2" style="display:none">
+            <div id="sugestiiTag" class="hidden absolute bottom-20 left-4 right-4 bg-slate-800 border border-blue-500 rounded-xl z-50 shadow-2xl"></div>
+            <form id="inputZona" onsubmit="trimiteMesaj(event)" class="p-3 bg-black/40 border-t border-slate-800 flex items-center gap-2">
                 <label id="btnUpload" class="cursor-pointer bg-slate-800 w-12 h-12 flex items-center justify-center rounded-xl hover:bg-slate-700">
                     📷 <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
                 </label>
-                <input type="text" id="chatInput" autocomplete="off" oninput="handleTagging(this.value)" placeholder="Mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-3 rounded-xl text-white text-sm outline-none focus:border-blue-500">
+                <input type="text" id="chatInput" autocomplete="off" oninput="handleTagging(this.value)" placeholder="Mesaj..." class="flex-1 bg-slate-900 border border-slate-800 p-3 rounded-xl text-white text-sm outline-none">
                 <button class="bg-blue-600 text-white px-5 h-12 rounded-xl font-black uppercase text-[10px]">></button>
             </form>
         </div>
-
         <div id="imageModal" onclick="inchidePoza()" class="fixed inset-0 bg-black/95 z-[100] hidden items-center justify-center p-4">
-            <button class="absolute top-6 right-6 text-white text-4xl font-black">&times;</button>
-            <img id="fullImage" src="" class="max-w-full max-h-full rounded-lg shadow-2xl border border-white/10">
+            <img id="fullImage" src="" class="max-w-full max-h-full rounded-lg shadow-2xl">
         </div>
-
         <footer class="mt-auto py-10 border-t border-slate-900 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"> 
-            &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500">Vali Dragomir</a>. Susține proiectul pe <a href="http://revolut.me/isshmen" target="_blank" class="text-blue-500">Revolut</a>
+            &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500">Vali Dragomir</a>
         </footer>
     </div>
 </body>
