@@ -198,5 +198,12 @@
         onAuthStateChanged(auth, u => { userLogat = u; onSnapshot(doc(db, "setari", "turnee"), s => { if(s.exists()) globalData = s.data(); render(); }); onSnapshot(doc(db, "sezoane", `JOKER_1`), s => { if(s.exists()) currentSezonData = s.data(); render(); }); });
     </script>
 </head>
-<body class="bg-black text-slate-300 font-sans tracking-tight mb-20"><div id="app"></div></body>
+<body class="bg-black text-slate-300 font-sans tracking-tight mb-20"><div id="app"></div>
+<footer class="mt-20 py-10 border-t border-slate-900 text-center">
+    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+        &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank">Vali Dragomir</a>. Poti sustine proiectul cu o donatie pe <a href="http://revolut.me/isshmen" target="_blank">Revolut</a>
+    </p>
+</footer>
+</body>
 </html>
+
