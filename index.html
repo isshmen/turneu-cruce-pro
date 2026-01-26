@@ -111,16 +111,16 @@
         };
 
         window.adminGeneraFaza2 = async () => {
-            if(!confirm("Generezi Faza 2 conform sistemului specificat?")) return;
+            if(!confirm("Generezi Faza 2 (A, B, C, D)?")) return;
             const data = {...currentSezonData};
             const c = {};
             Object.keys(data.f1).forEach(gk => { c[gk] = calculeazaClasament(data.f1[gk]); });
 
             const structuraF2 = {
-                "1": [ ['A',0], ['B',1], ['C',0], ['D',1] ],
-                "2": [ ['E',0], ['F',1], ['G',0], ['H',1] ],
-                "3": [ ['A',1], ['B',0], ['C',1], ['D',0] ],
-                "4": [ ['E',1], ['F',0], ['G',1], ['H',0] ]
+                "A": [ ['A',0], ['B',1], ['C',0], ['D',1] ],
+                "B": [ ['E',0], ['F',1], ['G',0], ['H',1] ],
+                "C": [ ['A',1], ['B',0], ['C',1], ['D',0] ],
+                "D": [ ['E',1], ['F',0], ['G',1], ['H',0] ]
             };
 
             data.f2 = {};
@@ -159,7 +159,7 @@
                 } else {
                     html += `<div class="text-center mb-6"><h2 class="text-4xl font-black italic uppercase text-white">Joker Ediția #${ed}</h2></div>
                     <div class="mb-10 px-2"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white text-sm focus:border-blue-500 outline-none transition-all"></div>`;
-                    const fazeMap = { f1: "Faza Grupelor", f2: "Faza 2 (16 jucători)", optimi: "Optimi", semi: "Semifinale", finale: "Marea Finală" };
+                    const fazeMap = { f1: "Faza Grupelor", f2: "16-imi (Faza 2)", optimi: "Optimi", semi: "Semifinale", finale: "Marea Finală" };
                     ["f1", "f2", "optimi", "semi", "finale"].forEach(f => {
                         if(!curSezon[f]) return;
                         let grupeDeAfisat = Object.keys(curSezon[f]).sort().filter(gk => !state.search || curSezon[f][gk].participanti.some(p => p.toLowerCase().includes(state.search)));
