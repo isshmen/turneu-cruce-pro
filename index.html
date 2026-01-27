@@ -71,40 +71,63 @@
             return Object.values(st).sort((a,b) => (b.victorii - a.victorii) || (b.castigate - a.castigate) || (a.pierdute - b.pierdute));
         };
 
-       window.updateScorMeci = async (faza, mId, set, p1, p2, titularCurent) => {
-    if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
-    
-    // Determinăm ordinea vizuală: cel de pe al cui card suntem apare primul în input
-    const nume1 = titularCurent === p1 ? p1 : p2;
-    const nume2 = titularCurent === p1 ? p2 : p1;
+        window.updateScorMeci = async (faza, mId, set, p1, p2, titularCurent) => {
+            if(!isAdmin()) return alert("Doar administratorii pot modifica scorul!");
+            const nume1 = titularCurent === p1 ? p1 : p2;
+            const nume2 = titularCurent === p1 ? p2 : p1;
+            const val = prompt(`Scor pentru ${nume1} vs ${nume2} (ex: 2-0):`);
+            if(!val) return;
+            let [v1, v2] = val.split("-").map(Number);
+            if(isNaN(v1) || isNaN(v2)) return alert("Format invalid!");
+            let data = {...currentSezonData};
+            let meci;
+            if(faza === 'optimi' || faza === 'semi' || faza === 'finale') {
+                meci = data[faza].find(m => m.id === mId);
+            } else {
+                meci = data[faza][state.idGrupa].meciuri.find(m => m.id === mId);
+            }
+            if (titularCurent === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
+            else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
+            meci.gata = true;
+            await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
+            await setDoc(doc(collection(db, "chat")), {
+                text: `Scor actualizat: ${nume1} ${v1}-${v2} ${nume2} (${set === 't' ? 'Tur' : 'Retur'})`,
+                timestamp: Date.now(), tip: 'sistem'
+            });
+        };
 
-    const val = prompt(`Scor pentru ${nume1} vs ${nume2} (ex: 2-0):`);
-    if(!val) return;
-    
-    let [v1, v2] = val.split("-").map(Number);
-    if(isNaN(v1) || isNaN(v2)) return alert("Format invalid!");
+        window.adminGeneraFaza2 = async () => {
+            if(!confirm("Generezi Faza 2 (A, B, C, D)?")) return;
+            const data = {...currentSezonData};
+            const c = {};
+            Object.keys(data.f1).forEach(gk => { c[gk] = calculeazaClasament(data.f1[gk]); });
+            const structuraF2 = { "A": [['A',0],['B',1],['C',0],['D',1]], "B": [['E',0],['F',1],['G',0],['H',1]], "C": [['A',1],['B',0],['C',1],['D',0]], "D": [['E',1],['F',0],['G',1],['H',0]] };
+            data.f2 = {};
+            Object.entries(structuraF2).forEach(([gk, reguli]) => {
+                const p = reguli.map(r => c[r[0]]?.[r[1]]?.nume).filter(n => n);
+                if(p.length > 0) {
+                    data.f2[gk] = { participanti: p, meciuri: [] };
+                    for(let i=0; i<p.length; i++) for(let j=i+1; j<p.length; j++) 
+                        data.f2[gk].meciuri.push({ id: "M2-"+Math.random().toString(36).substr(2,9), p1: p[i], p2: p[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
+                }
+            });
+            await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
+        };
 
-    let data = {...currentSezonData};
-    let meci = faza === 'f1' ? data.f1[state.idGrupa].meciuri.find(m => m.id === mId) : data[faza][state.idGrupa].meciuri.find(m => m.id === mId);
-    
-    // Mapăm scorurile corect în baza de date (s1 e mereu p1, s2 e mereu p2)
-    if (titularCurent === p1) {
-        meci[`s1${set}`] = v1; 
-        meci[`s2${set}`] = v2;
-    } else {
-        meci[`s1${set}`] = v2; 
-        meci[`s2${set}`] = v1;
-    }
-    
-    meci.gata = true;
-    await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
-
-    await setDoc(doc(collection(db, "chat")), {
-        text: `Scor actualizat: ${nume1} ${v1}-${v2} ${nume2} (${set === 't' ? 'Tur' : 'Retur'})`,
-        timestamp: Date.now(),
-        tip: 'sistem'
-    });
-};
+        window.adminGeneraOptimi = async () => {
+            const data = {...currentSezonData};
+            const f2Complet = Object.values(data.f2).every(g => g.meciuri.every(m => m.gata));
+            if(!f2Complet) return alert("Toate meciurile din Faza 2 trebuie finalizate!");
+            if(!confirm("Generezi Optimile de Finală?")) return;
+            const c = {};
+            ['A','B','C','D'].forEach(gk => { c[gk] = calculeazaClasament(data.f2[gk]); });
+            const p = [ [c.A[0], c.B[1]], [c.A[1], c.B[0]], [c.C[0], c.D[1]], [c.C[1], c.D[0]] ];
+            data.optimi = p.map(pair => ({
+                id: "OPT-"+Math.random().toString(36).substr(2,9),
+                p1: pair[0].nume, p2: pair[1].nume, s1t:0, s2t:0, s1r:0, s2r:0, gata: false
+            }));
+            await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
+        };
 
         window.gestiuneInscriere = async (a) => {
             const nume = curataNume(userLogat.displayName);
@@ -132,31 +155,6 @@
                 }
             });
             await setDoc(doc(db, "sezoane", `JOKER_${ed}`), { f1, status: 'activ' });
-        };
-
-        window.adminGeneraFaza2 = async () => {
-            if(!confirm("Generezi Faza 2 (A, B, C, D)?")) return;
-            const data = {...currentSezonData};
-            const c = {};
-            Object.keys(data.f1).forEach(gk => { c[gk] = calculeazaClasament(data.f1[gk]); });
-
-            const structuraF2 = {
-                "A": [ ['A',0], ['B',1], ['C',0], ['D',1] ],
-                "B": [ ['E',0], ['F',1], ['G',0], ['H',1] ],
-                "C": [ ['A',1], ['B',0], ['C',1], ['D',0] ],
-                "D": [ ['E',1], ['F',0], ['G',1], ['H',0] ]
-            };
-
-            data.f2 = {};
-            Object.entries(structuraF2).forEach(([gk, reguli]) => {
-                const p = reguli.map(r => c[r[0]]?.[r[1]]?.nume).filter(n => n);
-                if(p.length > 0) {
-                    data.f2[gk] = { participanti: p, meciuri: [] };
-                    for(let i=0; i<p.length; i++) for(let j=i+1; j<p.length; j++) 
-                        data.f2[gk].meciuri.push({ id: "M2-"+Math.random().toString(36).substr(2,9), p1: p[i], p2: p[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
-                }
-            });
-            await updateDoc(doc(db, "sezoane", `JOKER_${globalData.ed_JOKER}`), data);
         };
 
         async function render() {
@@ -193,15 +191,33 @@
                     const fazeMap = { f1: "Faza Grupelor", f2: "16-imi (Faza 2)", optimi: "Optimi", semi: "Semifinale", finale: "Marea Finală" };
                     ["f1", "f2", "optimi", "semi", "finale"].forEach(f => {
                         if(!curSezon[f]) return;
-                        let grupeDeAfisat = Object.keys(curSezon[f]).sort().filter(gk => !state.search || curSezon[f][gk].participanti.some(p => p.toLowerCase().includes(state.search)));
-                        if(grupeDeAfisat.length === 0 && state.search) return;
-                        html += `<div class="mb-10"><div class="flex items-center gap-4 mb-6"><div class="h-px bg-slate-800 flex-1"></div><h3 class="text-slate-500 font-black uppercase text-[10px] tracking-widest">${fazeMap[f]}</h3><div class="h-px bg-slate-800 flex-1"></div></div><div class="grid grid-cols-2 gap-4">`;
-                        grupeDeAfisat.forEach(gk => {
-                            html += `<div onclick="nav('grupa', '${gk}', '${f}')" class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all shadow-lg"><div class="text-[10px] font-black text-slate-500 uppercase">Grupa</div><div class="text-3xl font-black text-white italic">${gk}</div></div>`;
-                        });
-                        html += `</div></div>`;
+                        html += `<div class="mb-10"><div class="flex items-center gap-4 mb-6"><div class="h-px bg-slate-800 flex-1"></div><h3 class="text-slate-500 font-black uppercase text-[10px] tracking-widest">${fazeMap[f]}</h3><div class="h-px bg-slate-800 flex-1"></div></div>`;
+                        if(f === 'f1' || f === 'f2') {
+                            let grupeDeAfisat = Object.keys(curSezon[f]).sort().filter(gk => !state.search || curSezon[f][gk].participanti.some(p => p.toLowerCase().includes(state.search)));
+                            html += `<div class="grid grid-cols-2 gap-4">`;
+                            grupeDeAfisat.forEach(gk => {
+                                html += `<div onclick="nav('grupa', '${gk}', '${f}')" class="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all shadow-lg"><div class="text-[10px] font-black text-slate-500 uppercase">Grupa</div><div class="text-3xl font-black text-white italic">${gk}</div></div>`;
+                            });
+                            html += `</div>`;
+                        } else {
+                            curSezon[f].forEach(m => {
+                                if(state.search && !m.p1.toLowerCase().includes(state.search) && !m.p2.toLowerCase().includes(state.search)) return;
+                                const curs = isAdmin() ? 'cursor-pointer hover:border-blue-500' : 'cursor-default opacity-80';
+                                html += `<div class="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 mb-4 shadow-xl">
+                                    <div class="text-center mb-4 text-[10px] font-black text-blue-500 uppercase italic tracking-tighter">${m.p1} vs ${m.p2}</div>
+                                    <div class="flex justify-center gap-6">
+                                        <div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1 uppercase">Tur</span><button onclick="updateScorMeci('${f}','${m.id}','t','${m.p1}','${m.p2}','${m.p1}')" class="bg-black border border-slate-800 px-6 py-2 rounded-xl text-xs font-black min-w-[70px] ${curs}">${m.s1t}-${m.s2t}</button></div>
+                                        <div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1 uppercase">Retur</span><button onclick="updateScorMeci('${f}','${m.id}','r','${m.p1}','${m.p2}','${m.p1}')" class="bg-black border border-slate-800 px-6 py-2 rounded-xl text-xs font-black min-w-[70px] ${curs}">${m.s1r}-${m.s2r}</button></div>
+                                    </div>
+                                </div>`;
+                            });
+                        }
+                        html += `</div>`;
                     });
-                    if(isAdmin() && !curSezon.f2) html += `<button onclick="adminGeneraFaza2()" class="w-full bg-white text-black py-4 rounded-2xl font-black uppercase text-[10px] mb-10">Faza Următoare</button>`;
+                    if(isAdmin()) {
+                        if(!curSezon.f2) html += `<button onclick="adminGeneraFaza2()" class="w-full bg-white text-black py-4 rounded-2xl font-black uppercase text-[10px] mb-10">Generează Faza 2</button>`;
+                        else if(!curSezon.optimi) html += `<button onclick="adminGeneraOptimi()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] mb-10">Generează Optimi</button>`;
+                    }
                 }
             } else if(state.pagina === "grupa") {
                 html += `<button onclick="nav('home')" class="bg-green-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] mb-8 shadow-lg flex items-center gap-2">← Înapoi la tablou</button>`;
@@ -214,29 +230,19 @@
                 g.participanti.forEach(j => {
                     const meciuri = g.meciuri.filter(m => m.p1 === j || m.p2 === j);
                     html += `<div class="mb-10"><h4 class="text-[11px] font-black uppercase mb-4 ml-2 tracking-widest ${top2.includes(j) ? 'text-green-500' : 'text-slate-500'}">${j}</h4>`;
-// CAUTĂ ACEASTĂ SECȚIUNE ȘI ÎNLOCUIEȘTE-O:
-meciuri.forEach(m => {
-    const adv = m.p1 === j ? m.p2 : m.p1;
-    const s1 = m.p1 === j ? m.s1t : m.s2t;
-    const s2 = m.p1 === j ? m.s2t : m.s1t;
-    const r1 = m.p1 === j ? m.s1r : m.s2r;
-    const r2 = m.p1 === j ? m.s2r : m.s1r;
-    const curs = isAdmin() ? 'cursor-pointer hover:border-blue-500' : 'cursor-default opacity-80';
-    
-    html += `<div class="bg-slate-900/50 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5 shadow-lg">
-        <div class="flex flex-col"><span class="text-[10px] font-black uppercase italic">${j} vs ${adv}</span></div>
-        <div class="flex gap-4">
-            <div class="flex flex-col items-center">
-                <span class="text-[8px] font-black text-slate-600 mb-1">TUR</span>
-                <button onclick="updateScorMeci('${state.faza}','${m.id}','t','${m.p1}','${m.p2}', '${j}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${s1}-${s2}</button>
-            </div>
-            <div class="flex flex-col items-center">
-                <span class="text-[8px] font-black text-slate-600 mb-1">RETUR</span>
-                <button onclick="updateScorMeci('${state.faza}','${m.id}','r','${m.p1}','${m.p2}', '${j}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${r1}-${r2}</button>
-            </div>
-        </div>
-    </div>`;
-});
+                    meciuri.forEach(m => {
+                        const adv = m.p1 === j ? m.p2 : m.p1;
+                        const s1 = m.p1 === j ? m.s1t : m.s2t; const s2 = m.p1 === j ? m.s2t : m.s1t;
+                        const r1 = m.p1 === j ? m.s1r : m.s2r; const r2 = m.p1 === j ? m.s2r : m.s1r;
+                        const curs = isAdmin() ? 'cursor-pointer hover:border-blue-500' : 'cursor-default opacity-80';
+                        html += `<div class="bg-slate-900/50 p-5 rounded-2xl mb-3 flex justify-between items-center border border-white/5 shadow-lg">
+                            <div class="flex flex-col"><span class="text-[10px] font-black uppercase italic">${j} vs ${adv}</span></div>
+                            <div class="flex gap-4">
+                                <div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1">TUR</span><button onclick="updateScorMeci('${state.faza}','${m.id}','t','${m.p1}','${m.p2}', '${j}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${s1}-${s2}</button></div>
+                                <div class="flex flex-col items-center"><span class="text-[8px] font-black text-slate-600 mb-1">RETUR</span><button onclick="updateScorMeci('${state.faza}','${m.id}','r','${m.p1}','${m.p2}', '${j}')" class="bg-black border border-slate-800 px-4 py-2 rounded-xl text-xs font-black min-w-[65px] ${curs}">${r1}-${r2}</button></div>
+                            </div>
+                        </div>`;
+                    });
                     html += `</div>`;
                 });
             }
@@ -251,9 +257,8 @@ meciuri.forEach(m => {
     <div id="app"></div>
     <footer class="mt-20 py-10 border-t border-slate-900 text-center">
         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"> 
-            &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500 hover:text-blue-400">Vali Dragomir</a>. Poti sustine proiectul cu o donatie pe <a href="http://revolut.me/isshmen" target="_blank" class="text-blue-500 hover:text-blue-400">Revolut</a>
+            &copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500 hover:text-blue-400">Vali Dragomir</a>.
         </p>
     </footer>
 </body>
 </html>
-
