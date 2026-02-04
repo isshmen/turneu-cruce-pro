@@ -109,7 +109,7 @@
                     });
                 }
                 html += `</div>`;
-                if(isAdmin()) html += `<button onclick="adminCorectieNume()" class="w-full mt-10 bg-orange-600/20 text-orange-500 border border-orange-600/30 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Corectează Numele (O singură dată)</button>`;
+            //  if(isAdmin()) html += `<button onclick="adminCorectieNume()" class="w-full mt-10 bg-orange-600/20 text-orange-500 border border-orange-600/30 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Corectează Numele (O singură dată)</button>`;
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData.f1[state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
@@ -146,3 +146,4 @@
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
 </html>
+
