@@ -37,6 +37,24 @@
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
+        // FUNCȚIE PENTRU MODIFICAT UN SINGUR NUME ORIUNDE APARE EL
+        window.adminModificaNume = async () => {
+            if(!isAdmin()) return;
+            const vechi = prompt("Numele de modificat (exact cum apare acum):");
+            if(!vechi) return;
+            const nou = prompt("Numele nou:");
+            if(!nou) return;
+
+            let dataStr = JSON.stringify(currentSezonData);
+            if(!dataStr.includes(vechi)) return alert("Numele vechi nu a fost găsit!");
+            
+            dataStr = dataStr.split(vechi).join(nou);
+            try {
+                await setDoc(doc(db, "sezoane", "JOKER_2"), JSON.parse(dataStr));
+                alert(`Numele ${vechi} a fost înlocuit cu ${nou} peste tot!`);
+            } catch (e) { alert(e.message); }
+        };
+
         window.updateScorMeci = async (mId, set, p1, p2, titular) => {
             if(!isAdmin()) return alert("Doar adminul poate edita scorul!");
             const val = prompt(`Scor nou (ex: 2-0):`);
@@ -96,6 +114,7 @@
                     });
                 }
                 html += `</div>`;
+                if(isAdmin()) html += `<button onclick="adminModificaNume()" class="w-full mt-10 bg-slate-800/50 text-slate-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-800 italic">Editează Nume Jucător</button>`;
             } else if(state.pagina === "podium") {
                 html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500 tracking-widest flex items-center gap-2">← Înapoi</button>
                          <div class="text-center mb-12"><h2 class="text-3xl font-black italic uppercase">Podium Ediția #1</h2></div>
