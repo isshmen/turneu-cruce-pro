@@ -36,24 +36,24 @@
         window.logout = () => signOut(auth);
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
 
-        // BUTONUL CARE STERGE TOT SI REPORNESTE INTERFATA
         window.adminResetTotal = async () => {
-            if(!confirm("Ștergi tot sezonul 2 pentru a reface înscrierile?")) return;
+            if(!confirm("RESETEZI TOT? Această acțiune va șterge progresul sezonului 2.")) return;
             try {
                 await deleteDoc(doc(db, "sezoane", "JOKER_2"));
                 await setDoc(doc(db, "setari", "turnee"), { ed_JOKER: 2, inscrisi_JOKER: [] }, { merge: true });
-                alert("Sistem resetat! Acum poți vedea butoanele de Import.");
+                alert("Sistem resetat cu succes!");
             } catch (e) { alert(e.message); }
         };
 
         window.adminImportJucatori = async () => {
-            const lista = ["Jucator 1", "Jucator 2", "Jucator 3", "Jucator 4", "Jucator 5", "Jucator 6", "Jucator 7", "Jucator 8", "Jucator 9", "Jucator 10", "Jucator 11", "Jucator 12", "Jucator 13", "Jucator 14", "Jucator 15", "Jucator 16", "Jucator 17", "Jucator 18", "Jucator 19", "Jucator 20", "Jucator 21", "Jucator 22", "Jucator 23", "Jucator 24", "Jucator 25", "Jucator 26", "Jucator 27", "Jucator 28", "Jucator 29", "Jucator 30", "Jucator 31", "Jucator 32", "Jucator 33", "Jucator 34", "Jucator 35"];
+            const lista = ["Adi Ignat", "Adrian Murgu", "Ancuta Ilies", "Andrei Mato", "Bobby Tiberiu", "Botos Flavius", "Cami Alessia", "Carina Florina L.", "Coman Iuliu D.", "Cristian Patrut", "Dan Flavius", "Florin Ginsca", "Gerald Miodrag", "Ghiata Nicoleta", "Ioana Cioanca", "Ioana Cristina", "Ion Radan", "Ionas Clara", "Ionel Muntean", "Ionut Raul", "Iosif Ghimboasa", "Jarsani Jawann", "Jozsef Zsolt", "Julia Kornidesz", "Livia Holdis", "Mariana Balaj", "Mariana Mois", "Michael Topan", "Mihai Lungu", "Ovidiu Miclaus", "Roxana Valandman", "Siegfried Schuster", "Vlad Gavrilas", "Vlad Tino", "Victor Alin"];
             await updateDoc(doc(db, "setari", "turnee"), { inscrisi_JOKER: lista });
-            alert("Jucători importați!");
+            alert("Cei 35 de jucători au fost importați!");
         };
 
         window.adminStartSezon = async () => {
             let inscrisi = [...globalData.inscrisi_JOKER];
+            if(inscrisi.length === 0) return alert("Lista de înscriși este goală!");
             let f1 = {};
             const gList = ['A','B','C','D','E','F','G','H'];
             inscrisi.sort(() => Math.random() - 0.5);
@@ -74,6 +74,33 @@
             await setDoc(doc(db, "sezoane", "JOKER_2"), { f1, status: 'activ' });
         };
 
+        window.updateScorMeci = async (mId, set, p1, p2, titular) => {
+            if(!isAdmin()) return;
+            const val = prompt(`Scor (ex: 2-0):`);
+            if(!val) return;
+            let [v1, v2] = val.split("-").map(Number);
+            let data = {...currentSezonData};
+            let meci = data.f1[state.idGrupa].meciuri.find(m => m.id === mId);
+            if (titular === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
+            else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
+            meci.gata = true;
+            await updateDoc(doc(db, "sezoane", "JOKER_2"), data);
+        };
+
+        const calculeazaClasament = (g) => {
+            let st = {};
+            g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
+            g.meciuri.forEach(m => {
+                if(!m.gata) return;
+                [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
+                    if(s.s1 > s.s2) st[m.p1].v++; else if(s.s2 > s.s1) st[m.p2].v++;
+                    st[m.p1].c += s.s1; st[m.p1].p += s.s2;
+                    st[m.p2].c += s.s2; st[m.p2].p += s.s1;
+                });
+            });
+            return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
+        };
+
         async function render() {
             const root = document.getElementById('app');
             const turneuActiv = currentSezonData && currentSezonData.status === 'activ';
@@ -90,9 +117,9 @@
                     const inscrisi = globalData.inscrisi_JOKER || [];
                     html += `<div class="bg-slate-900 p-6 rounded-3xl border border-slate-800">
                         <h2 class="mb-4 font-bold uppercase text-slate-400">Înscrieri (${inscrisi.length})</h2>
-                        <div class="flex flex-wrap gap-2 mb-6">${inscrisi.map(n => `<span class="bg-black px-3 py-1 rounded-lg text-xs border border-white/10">${n}</span>`).join('')}</div>
-                        ${isAdmin() ? `<button onclick="adminImportJucatori()" class="w-full bg-slate-800 py-3 rounded-xl mb-2 text-xs font-bold uppercase">1. Importă Jucători</button>
-                                       <button onclick="adminStartSezon()" class="w-full bg-blue-600 py-3 rounded-xl text-xs font-bold uppercase">2. Start Sezon 1vs1</button>` : ''}
+                        <div class="grid grid-cols-2 gap-2 mb-6">${inscrisi.map(n => `<span class="bg-black px-3 py-1 rounded-lg text-[10px] border border-white/5 uppercase italic">${n}</span>`).join('')}</div>
+                        ${isAdmin() ? `<button onclick="adminImportJucatori()" class="w-full bg-slate-800 py-3 rounded-xl mb-2 text-xs font-bold uppercase tracking-widest">1. Importă Lista de 35</button>
+                                       <button onclick="adminStartSezon()" class="w-full bg-blue-600 py-3 rounded-xl text-xs font-bold uppercase tracking-widest">2. Generează Grupe 1vs1</button>` : ''}
                     </div>`;
                 } else {
                     html += `<div class="grid grid-cols-2 gap-4">`;
@@ -100,12 +127,31 @@
                         html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
                     });
                     html += `</div>`;
-                    if(isAdmin()) html += `<button onclick="adminResetTotal()" class="w-full mt-10 text-[10px] text-slate-600 uppercase font-bold">Reset Total Sezon (Admin)</button>`;
+                    if(isAdmin()) html += `<button onclick="adminResetTotal()" class="w-full mt-20 text-[10px] text-slate-700 uppercase font-bold tracking-widest">Reset Total Sezon</button>`;
                 }
             } else if(state.pagina === "grupa") {
-                html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold uppercase text-blue-500">← Înapoi</button>
-                         <div class="text-3xl font-black mb-6 uppercase italic text-center">Grupa ${state.idGrupa}</div>`;
-                // ... (restul logicii de afisare meciuri rămâne la fel)
+                const g = currentSezonData.f1[state.idGrupa], c = calculeazaClasament(g);
+                html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
+                         <div class="text-3xl font-black mb-8 uppercase italic text-center">Grupa ${state.idGrupa}</div>
+                         <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800">
+                            <table class="w-full text-xs font-bold"><tr class="text-slate-500 uppercase"><th class="text-left pb-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
+                            ${c.map(x => `<tr class="border-t border-white/5"><td class="py-3 uppercase italic">${x.nume}</td><td class="text-center text-blue-500">${x.v}</td><td class="text-center">${x.c}</td><td class="text-center text-slate-500">${x.p}</td></tr>`).join('')}
+                            </table></div>`;
+                g.participanti.forEach(j => {
+                    html += `<div class="mb-8"><h3 class="text-[10px] font-black uppercase text-slate-500 mb-3 ml-1">${j}</h3>`;
+                    g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
+                        const adv = m.p1 === j ? m.p2 : m.p1;
+                        const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
+                        const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
+                        html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex justify-between items-center mb-2">
+                            <span class="text-[11px] italic uppercase">${adv}</span>
+                            <div class="flex gap-2">
+                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
+                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
+                            </div></div>`;
+                    });
+                    html += `</div>`;
+                });
             }
             root.innerHTML = html + `</div>`;
         }
