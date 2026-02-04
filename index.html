@@ -24,9 +24,8 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        const ADMINS = ["isshmen@gmail.com"];
+        const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null;
-        let globalData = { ed_JOKER: 2, inscrisi_JOKER: [] };
         let currentSezonData = null;
         let state = { pagina: "home", idGrupa: null, search: "" };
 
@@ -37,27 +36,21 @@
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        // FUNCȚIE PENTRU MODIFICAT UN SINGUR NUME ORIUNDE APARE EL
         window.adminModificaNume = async () => {
             if(!isAdmin()) return;
-            const vechi = prompt("Numele de modificat (exact cum apare acum):");
-            if(!vechi) return;
+            const vechi = prompt("Numele de modificat:");
             const nou = prompt("Numele nou:");
-            if(!nou) return;
-
+            if(!vechi || !nou) return;
             let dataStr = JSON.stringify(currentSezonData);
-            if(!dataStr.includes(vechi)) return alert("Numele vechi nu a fost găsit!");
-            
+            if(!dataStr.includes(vechi)) return alert("Numele nu a fost găsit!");
             dataStr = dataStr.split(vechi).join(nou);
-            try {
-                await setDoc(doc(db, "sezoane", "JOKER_2"), JSON.parse(dataStr));
-                alert(`Numele ${vechi} a fost înlocuit cu ${nou} peste tot!`);
-            } catch (e) { alert(e.message); }
+            await setDoc(doc(db, "sezoane", "JOKER_2"), JSON.parse(dataStr));
+            alert("Nume actualizat!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, titular) => {
-            if(!isAdmin()) return alert("Doar adminul poate edita scorul!");
-            const val = prompt(`Scor nou (ex: 2-0):`);
+            if(!isAdmin()) return;
+            const val = prompt(`Scor (ex: 2-0):`);
             if(!val) return;
             let [v1, v2] = val.split("-").map(Number);
             let data = {...currentSezonData};
@@ -84,28 +77,20 @@
 
         async function render() {
             const root = document.getElementById('app');
-            const turneuActiv = currentSezonData && currentSezonData.status === 'activ';
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
-                    <div>${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : ''}</div>
+                    <div>${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginGoogle()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}</div>
                 </nav>`;
 
-            if(!userLogat) {
-                html += `<button onclick="loginGoogle()" class="w-full bg-white text-black py-4 rounded-xl font-bold uppercase shadow-lg text-xs">Login Admin</button>`;
-            } else if(state.pagina === "home") {
+            if(state.pagina === "home") {
                 html += `<div class="text-center mb-6"><h2 class="text-3xl font-black italic uppercase">Faza Grupelor</h2></div>
                          <div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none transition-all text-white font-bold"></div>
-                         
-                         <div onclick="nav('podium')" class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 p-6 rounded-3xl mb-10 cursor-pointer hover:scale-[1.02] transition-all group shadow-xl">
-                            <div class="flex justify-between items-center text-xs font-black uppercase tracking-widest text-blue-400">
-                                <span>Câștigător Ediția #1</span>
-                                <span class="group-hover:translate-x-1 transition-transform">🏆</span>
-                            </div>
-                         </div>`;
-                
-                html += `<div class="grid grid-cols-2 gap-4">`;
-                if(turneuActiv) {
+                         <div onclick="nav('podium')" class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 p-6 rounded-3xl mb-10 cursor-pointer hover:scale-[1.02] transition-all group shadow-xl flex justify-between items-center text-xs font-black uppercase tracking-widest text-blue-400">
+                            <span>Câștigător Ediția #1</span><span class="group-hover:translate-x-1 transition-transform">🏆</span>
+                         </div>
+                         <div class="grid grid-cols-2 gap-4">`;
+                if(currentSezonData) {
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
                         const participanti = currentSezonData.f1[gk].participanti;
                         if(!state.search || participanti.some(p => p.toLowerCase().includes(state.search))) {
@@ -116,28 +101,19 @@
                 html += `</div>`;
                 if(isAdmin()) html += `<button onclick="adminModificaNume()" class="w-full mt-10 bg-slate-800/50 text-slate-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-800 italic">Editează Nume Jucător</button>`;
             } else if(state.pagina === "podium") {
-                html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500 tracking-widest flex items-center gap-2">← Înapoi</button>
+                html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
                          <div class="text-center mb-12"><h2 class="text-3xl font-black italic uppercase">Podium Ediția #1</h2></div>
                          <div class="space-y-4">
-                            <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center shadow-2xl">
-                                <div><span class="block text-[10px] font-black uppercase text-yellow-500 tracking-tighter">Locul 1 (Trofeu)</span><span class="text-2xl font-black italic uppercase">Ovi Miclăuș</span></div>
-                                <div class="text-4xl">🏆</div>
-                            </div>
-                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center">
-                                <div><span class="block text-[10px] font-black uppercase text-slate-500">Locul 2</span><span class="text-xl font-black italic uppercase text-slate-300">Gerard Miodrag</span></div>
-                                <div class="text-2xl opacity-50">🥈</div>
-                            </div>
-                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center">
-                                <div><span class="block text-[10px] font-black uppercase text-slate-500">Locul 3</span><span class="text-xl font-black italic uppercase text-slate-400">Dan Marius</span></div>
-                                <div class="text-2xl opacity-30">🥉</div>
-                            </div>
+                            <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center"><div class="text-2xl font-black italic uppercase"><span class="block text-[10px] text-yellow-500">Locul 1</span>Ovi Miclăuș</div><div class="text-4xl">🏆</div></div>
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center"><div><span class="block text-[10px] text-slate-500 uppercase">Locul 2</span><span class="text-xl font-black italic uppercase text-slate-300">Gerard Miodrag</span></div><div class="text-2xl opacity-50">🥈</div></div>
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center"><div><span class="block text-[10px] text-slate-500 uppercase">Locul 3</span><span class="text-xl font-black italic uppercase text-slate-400">Dan Marius</span></div><div class="text-2xl opacity-30">🥉</div></div>
                          </div>`;
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData.f1[state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
                          <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa}</div>
                          <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 shadow-xl">
-                            <table class="w-full text-xs font-bold"><tr class="text-slate-500 uppercase"><th class="text-left pb-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
+                            <table class="w-full text-xs font-bold"><tr class="text-slate-500 uppercase text-center"><th class="text-left pb-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
                             ${c.map(x => `<tr class="border-t border-white/5 ${top2.includes(x.nume) ? 'text-green-500' : ''}"><td class="py-3 uppercase italic">${x.nume}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-center ${top2.includes(x.nume) ? 'text-green-900' : 'text-slate-500'}">${x.p}</td></tr>`).join('')}
                             </table></div>`;
                 g.participanti.forEach(j => {
@@ -159,11 +135,8 @@
             root.innerHTML = html + `</div><footer class="mt-20 py-10 border-t border-slate-900 text-center"><p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">&copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500">Vali Dragomir</a></p></footer>`;
         }
 
-        onAuthStateChanged(auth, u => { 
-            userLogat = u; 
-            onSnapshot(doc(db, "setari", "turnee"), s => { if(s.exists()) globalData = s.data(); render(); }); 
-            onSnapshot(doc(db, "sezoane", "JOKER_2"), s => { if(s.exists()) { currentSezonData = s.data(); render(); } }); 
-        });
+        onAuthStateChanged(auth, u => { userLogat = u; render(); });
+        onSnapshot(doc(db, "sezoane", "JOKER_2"), s => { if(s.exists()) { currentSezonData = s.data(); render(); } });
     </script>
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
