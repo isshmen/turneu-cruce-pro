@@ -43,7 +43,6 @@
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        // LOGICA NOTIFICARI (din codul de Chat)
         window.activeazaNotificari = () => {
             Notification.requestPermission().then(perm => { if (perm === "granted") alert("Notificări activate!"); });
         };
@@ -71,6 +70,7 @@
             if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
+            meci.lastUpdate = Date.now(); // Adăugăm timestamp pentru sortare corectă
             await updateDoc(doc(db, "sezoane", "JOKER_2"), data);
         };
 
@@ -115,8 +115,10 @@
                     Object.keys(currentSezonData.f1).forEach(gk => {
                         currentSezonData.f1[gk].meciuri.filter(m => m.gata).forEach(m => toate.push({...m, grupa: gk}));
                     });
-                    const ultimele = toate.sort((a,b) => b.id.localeCompare(a.id)).slice(0, 8);
-                    html += `<div class="mb-10"><h2 class="text-xs font-black uppercase text-slate-500 mb-4 ml-1 italic">Ultimele Rezultate</h2><div class="space-y-2">`;
+                    // Sortăm după timestamp-ul ultimei modificări (cele mai noi primele)
+                    const ultimele = toate.sort((a,b) => (b.lastUpdate || 0) - (a.lastUpdate || 0)).slice(0, 8);
+                    
+                    html += `<div class="mb-10"><h3 class="text-xs font-black uppercase text-slate-500 mb-4 ml-1 italic">Activitate</h3><div class="space-y-2">`;
                     ultimele.forEach(m => {
                         html += `<div class="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex justify-between items-center text-[11px]">
                             <span class="text-blue-500 font-bold uppercase">Gr ${m.grupa}</span>
@@ -182,7 +184,6 @@
             if(s.exists()) { 
                 const newData = s.data();
                 if (!primaIncarcare) {
-                    // Verificăm dacă s-a schimbat vreun scor pentru notificare
                     trimiteNotificareLocala("Scor Nou!", "S-a actualizat un rezultat în turneu.");
                 }
                 currentSezonData = newData; 
@@ -195,4 +196,3 @@
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
 </html>
-
