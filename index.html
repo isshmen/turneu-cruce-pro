@@ -157,18 +157,35 @@
                             ${drawUser(j, "w-14 h-14", "text-xl font-black")}
                         </div>`;
                     
-                    g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
-                        const adv = m.p1 === j ? m.p2 : m.p1;
-                        const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
-                        const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
-                        
-                        html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex justify-between items-center mb-2 shadow-sm">
-                            ${drawUser(adv, "w-8 h-8", "text-[11px]")}
-                            <div class="flex gap-2">
-                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
-                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
-                            </div></div>`;
-                    });
+g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
+    const adv = m.p1 === j ? m.p2 : m.p1;
+    const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
+    const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
+    
+    // Datele pentru poze
+    const pozaEu = dateJucatori[j]?.poza;
+    const pozaAdv = dateJucatori[adv]?.poza;
+
+    html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 shadow-sm">
+        <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-3">
+                ${pozaEu ? `<img src="${pozaEu}" class="w-8 h-8 rounded-full object-cover border border-white/10">` : `<div class="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${j.charAt(0)}</div>`}
+                
+                <span class="text-[10px] font-black text-slate-600 italic uppercase">vs</span>
+
+                <div class="flex items-center gap-2">
+                    ${pozaAdv ? `<img src="${pozaAdv}" class="w-8 h-8 rounded-full object-cover border border-white/10">` : `<div class="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${adv.charAt(0)}</div>`}
+                    <span class="text-[11px] uppercase italic font-bold text-blue-400">${adv}</span>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
+                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
+            </div>
+        </div>
+    </div>`;
+});
                     html += `</div>`;
                 });
             }
@@ -182,5 +199,6 @@
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
 </html>
+
 
 
