@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -32,12 +32,24 @@
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
-        window.loginGoogle = () => signInWithPopup(auth, provider);
+        window.loginAdmin = async () => {
+            const metoda = confirm("Apasă OK pentru Google sau Cancel pentru Email/Parolă");
+            if (metoda) {
+                signInWithPopup(auth, provider);
+            } else {
+                const email = prompt("Email:", "admin@admin.ro");
+                const pass = prompt("Parola:");
+                if (email && pass) {
+                    try { await signInWithEmailAndPassword(auth, email, pass); } 
+                    catch (e) { alert("Eroare la logare!"); }
+                }
+            }
+        };
+
         window.logout = () => signOut(auth);
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        // Helper pentru afișare Avatar + Nume
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]") => {
             const userData = dateJucatori[nume];
             const hasFoto = userData && userData.poza;
@@ -95,7 +107,7 @@
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
-                    <div>${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginGoogle()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}</div>
+                    <div>${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}</div>
                 </nav>`;
 
             if(state.pagina === "home") {
@@ -104,7 +116,7 @@
                          <div onclick="nav('podium')" class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 p-6 rounded-3xl mb-10 cursor-pointer hover:scale-[1.02] transition-all group shadow-xl flex justify-between items-center text-xs font-black uppercase tracking-widest text-blue-400">
                             <span>Câștigător Ediția #1</span><span class="group-hover:translate-x-1 transition-transform">🏆</span>
                          </div>
-                         <div class="grid grid-cols-2 gap-4">`;
+                         <div class="grid grid-cols-2 gap-4 mb-12">`;
                 if(currentSezonData) {
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
                         const participanti = currentSezonData.f1[gk].participanti;
@@ -114,29 +126,52 @@
                     });
                 }
                 html += `</div>`;
+
+                // ACTIVITATE
+                if(currentSezonData) {
+                    let toate = [];
+                    Object.keys(currentSezonData.f1).forEach(gk => {
+                        currentSezonData.f1[gk].meciuri.filter(m => m.gata).forEach(m => toate.push({...m, grupa: gk}));
+                    });
+                    const ultimele = toate.slice(-8).reverse();
+                    html += `<div class="mb-10"><h3 class="text-xs font-black uppercase text-slate-500 mb-4 ml-1">Activitate</h3><div class="space-y-2">`;
+                    ultimele.forEach(m => {
+                        html += `<div class="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex justify-between items-center text-[11px]">
+                            <span class="text-blue-500 font-bold uppercase">Gr ${m.grupa}</span>
+                            <span class="italic truncate px-2">${m.p1} vs ${m.p2}</span>
+                            <span class="font-black text-white bg-black px-2 py-1 rounded">(${m.s1t}-${m.s2t}) (${m.s1r}-${m.s2r})</span>
+                        </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+
+                // NOTIFICARI
+                html += `<div class="bg-blue-600/10 border border-blue-500/20 p-6 rounded-3xl text-center mb-10">
+                    <button onclick="Notification.requestPermission()" class="bg-blue-600 text-white text-[10px] font-black uppercase py-3 px-8 rounded-full">Activare Notificări</button>
+                </div>`;
+
                 if(isAdmin()) html += `<button onclick="adminModificaNume()" class="w-full mt-10 bg-slate-800/50 text-slate-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-800 italic">Editează Nume Jucător</button>`;
-           } else if(state.pagina === "podium") {
-    // Căutăm fix ID-ul din baza de date: "Ovidiu Miclaus"
-    const oviImg = dateJucatori["Ovidiu Miclaus"]?.poza || "";
-    html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
-             <div class="text-center mb-12"><h2 class="text-3xl font-black italic uppercase">Podium Ediția #1</h2></div>
-             <div class="space-y-4">
-                <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center shadow-2xl">
-                    <div class="flex items-center gap-4">
-                        ${oviImg ? `<img src="${oviImg}" class="w-16 h-16 rounded-full border-2 border-yellow-500 object-cover shadow-lg">` : `<div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-yellow-500 flex items-center justify-center text-xl font-bold">O</div>`}
-                        <div><span class="block text-[10px] font-black uppercase text-yellow-500">Locul 1</span><span class="text-2xl font-black italic uppercase">Ovidiu Miclaus</span></div>
-                    </div>
-                    <div class="text-4xl">🏆</div>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center">
-                    ${drawUser("Gerard Miodrag", "w-12 h-12", "text-xl")}
-                    <div class="text-2xl opacity-50">🥈</div>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center">
-                    ${drawUser("Dan Marius", "w-12 h-12", "text-xl")}
-                    <div class="text-2xl opacity-30">🥉</div>
-                </div>
-             </div>`;
+            } else if(state.pagina === "podium") {
+                const oviImg = dateJucatori["Ovidiu Miclaus"]?.poza || "";
+                html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
+                         <div class="text-center mb-12"><h2 class="text-3xl font-black italic uppercase">Podium Ediția #1</h2></div>
+                         <div class="space-y-4">
+                            <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center shadow-2xl">
+                                <div class="flex items-center gap-4">
+                                    ${oviImg ? `<img src="${oviImg}" class="w-16 h-16 rounded-full border-2 border-yellow-500 object-cover shadow-lg">` : `<div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-yellow-500 flex items-center justify-center text-xl font-bold">O</div>`}
+                                    <div><span class="block text-[10px] font-black uppercase text-yellow-500">Locul 1</span><span class="text-2xl font-black italic uppercase">Ovidiu Miclaus</span></div>
+                                </div>
+                                <div class="text-4xl">🏆</div>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center">
+                                ${drawUser("Gerard Miodrag", "w-12 h-12", "text-xl")}
+                                <div class="text-2xl opacity-50">🥈</div>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] flex justify-between items-center">
+                                ${drawUser("Dan Marius", "w-12 h-12", "text-xl")}
+                                <div class="text-2xl opacity-30">🥉</div>
+                            </div>
+                         </div>`;
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData.f1[state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold uppercase text-blue-500 tracking-widest">← Înapoi</button>
@@ -150,42 +185,27 @@
                                 <td class="text-center ${top2.includes(x.nume) ? 'text-green-900' : 'text-slate-500'}">${x.p}</td>
                             </tr>`).join('')}
                             </table></div>`;
-               g.participanti.forEach(j => {
-                    // TITLU CARD JUCĂTOR - MAI MARE (POZĂ + NUME)
-                    html += `<div class="mb-10">
-                        <div class="flex items-center gap-4 mb-5 ml-1 p-2 border-l-4 border-blue-500 bg-slate-900/30 rounded-r-xl">
-                            ${drawUser(j, "w-14 h-14", "text-xl font-black")}
-                        </div>`;
-                    
-g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
-    const adv = m.p1 === j ? m.p2 : m.p1;
-    const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
-    const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
-    
-    // Datele pentru poze
-    const pozaEu = dateJucatori[j]?.poza;
-    const pozaAdv = dateJucatori[adv]?.poza;
-
-    html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 shadow-sm">
-        <div class="flex justify-between items-center mb-3">
-            <div class="flex items-center gap-3">
-                ${pozaEu ? `<img src="${pozaEu}" class="w-8 h-8 rounded-full object-cover border border-white/10">` : `<div class="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${j.charAt(0)}</div>`}
-                
-                <span class="text-[10px] font-black text-slate-600 italic uppercase">vs</span>
-
-                <div class="flex items-center gap-2">
-                    ${pozaAdv ? `<img src="${pozaAdv}" class="w-8 h-8 rounded-full object-cover border border-white/10">` : `<div class="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${adv.charAt(0)}</div>`}
-                    <span class="text-[11px] uppercase italic font-bold text-blue-400">${adv}</span>
-                </div>
-            </div>
-
-            <div class="flex gap-2">
-                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
-                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
-            </div>
-        </div>
-    </div>`;
-});
+                g.participanti.forEach(j => {
+                    html += `<div class="mb-10"><div class="flex items-center gap-4 mb-5 ml-1 p-2 border-l-4 border-blue-500 bg-slate-900/30 rounded-r-xl">${drawUser(j, "w-14 h-14", "text-xl font-black")}</div>`;
+                    g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
+                        const adv = m.p1 === j ? m.p2 : m.p1;
+                        const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
+                        const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
+                        const pEu = dateJucatori[j]?.poza, pAd = dateJucatori[adv]?.poza;
+                        html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center gap-3">
+                                ${pEu ? `<img src="${pEu}" class="w-8 h-8 rounded-full object-cover">` : `<div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-[8px]">${j.charAt(0)}</div>`}
+                                <span class="text-[10px] font-black text-slate-600 italic">vs</span>
+                                <div class="flex items-center gap-2">
+                                    ${pAd ? `<img src="${pAd}" class="w-8 h-8 rounded-full object-cover">` : `<div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-[8px]">${adv.charAt(0)}</div>`}
+                                    <span class="text-[11px] uppercase italic font-bold text-blue-400">${adv}</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
+                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
+                            </div></div>`;
+                    });
                     html += `</div>`;
                 });
             }
@@ -199,6 +219,3 @@ g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
 </html>
-
-
-
