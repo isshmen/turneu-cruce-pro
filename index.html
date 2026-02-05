@@ -150,12 +150,18 @@
                                 <td class="text-center ${top2.includes(x.nume) ? 'text-green-900' : 'text-slate-500'}">${x.p}</td>
                             </tr>`).join('')}
                             </table></div>`;
-                g.participanti.forEach(j => {
-                    html += `<div class="mb-8"><div class="flex items-center gap-2 mb-3 ml-1">${drawUser(j, "w-5 h-5", "text-[10px] text-slate-500")}</div>`;
+               g.participanti.forEach(j => {
+                    // TITLU CARD JUCĂTOR - MAI MARE (POZĂ + NUME)
+                    html += `<div class="mb-10">
+                        <div class="flex items-center gap-4 mb-5 ml-1 p-2 border-l-4 border-blue-500 bg-slate-900/30 rounded-r-xl">
+                            ${drawUser(j, "w-14 h-14", "text-xl font-black")}
+                        </div>`;
+                    
                     g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
                         const adv = m.p1 === j ? m.p2 : m.p1;
                         const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
                         const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
+                        
                         html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex justify-between items-center mb-2 shadow-sm">
                             ${drawUser(adv, "w-8 h-8", "text-[11px]")}
                             <div class="flex gap-2">
@@ -176,4 +182,5 @@
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
 </html>
+
 
