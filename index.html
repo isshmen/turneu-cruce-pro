@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
@@ -43,18 +43,56 @@
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        const trimiteNotificareLocala = (titlu, msg) => {
-            if (Notification.permission === "granted" && !primaIncarcare) {
-                new Notification(titlu, { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/771/771239.png' });
-            }
-        };
-
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]") => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
             return `<div class="flex items-center gap-2">
                 ${hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`}
                 <span class="${textSize} uppercase italic font-medium truncate">${nume}</span>
             </div>`;
+        };
+
+        // FUNCTIE RESET & GENERARE FAZA 2 (Ruleaza o singura data de catre Admin)
+        window.genereazaFaza2 = async () => {
+            if(!isAdmin()) return alert("Doar adminul poate genera faza 2!");
+            if(!confirm("Ești sigur că vrei să resetezi totul și să generezi cele 4 grupe pentru Faza 2?")) return;
+
+            const calculeazaLocuri = (g) => {
+                let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
+                g.meciuri.forEach(m => {
+                    if(!m.gata) return;
+                    [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
+                        if(s.s1 > s.s2) st[m.p1].v++; else if(s.s2 > s.s1) st[m.p2].v++;
+                        st[m.p1].c += s.s1; st[m.p1].p += s.s2; st[m.p2].c += s.s2; st[m.p2].p += s.s1;
+                    });
+                });
+                return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
+            };
+
+            const f1 = currentSezonData.f1;
+            const getP = (gr, loc) => calculeazaLocuri(f1[gr])[loc-1].nume;
+
+            const scheme = {
+                "A": [getP("A",1), getP("B",2), getP("C",1), getP("D",2)],
+                "B": [getP("A",2), getP("B",1), getP("C",2), getP("D",1)],
+                "C": [getP("E",1), getP("F",2), getP("G",1), getP("H",2)],
+                "D": [getP("E",2), getP("F",1), getP("G",2), getP("H",1)]
+            };
+
+            let noulF1 = {};
+            Object.keys(scheme).forEach(numeG => {
+                const part = scheme[numeG];
+                let meciuri = [];
+                let mid = 1;
+                for(let i=0; i<part.length; i++) {
+                    for(let j=i+1; j<part.length; j++) {
+                        meciuri.push({ id: `m${numeG}${mid++}`, p1: part[i], p2: part[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
+                    }
+                }
+                noulF1[numeG] = { participanti: part, meciuri: meciuri };
+            });
+
+            await setDoc(doc(db, "sezoane", "JOKER_2"), { f1: noulF1 });
+            alert("Faza 2 generată cu succes!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, tit) => {
@@ -87,7 +125,10 @@
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
-                    <div>${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}</div>
+                    <div class="flex gap-4 items-center">
+                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Reset Faza 2</button>` : ''}
+                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
+                    </div>
                 </nav>`;
 
             if(state.pagina === "home") {
@@ -98,12 +139,9 @@
                          </div>
                          <div class="grid grid-cols-2 gap-4 mb-12">`;
                 if(currentSezonData) {
-                    // Afișăm Grupele A, B, C, D pentru Faza 2
-                    ["A", "B", "C", "D"].forEach(gk => {
-                        if(currentSezonData.f1[gk]) {
-                            if(!state.search || currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search))) {
-                                html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
-                            }
+                    Object.keys(currentSezonData.f1).sort().forEach(gk => {
+                        if(!state.search || currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search))) {
+                            html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
                         }
                     });
                 }
@@ -175,11 +213,7 @@
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
         onSnapshot(doc(db, "sezoane", "JOKER_2"), s => { 
             if(s.exists()) { 
-                const newData = s.data();
-                if (!primaIncarcare) {
-                    trimiteNotificareLocala("Scor Nou!", "S-a actualizat un rezultat în turneu.");
-                }
-                currentSezonData = newData; 
+                currentSezonData = s.data(); 
                 primaIncarcare = false;
                 render(); 
             } 
