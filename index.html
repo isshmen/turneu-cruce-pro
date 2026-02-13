@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Joker - Ediția #2</title>
+    <title>Turneu Joker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -52,7 +52,7 @@
         };
 
         const calculeazaClasament = (g) => {
-            if(!g || !g.participanti) return [];
+            if(!g) return [];
             let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
             g.meciuri.forEach(m => {
                 if(!m.gata) return;
@@ -65,38 +65,37 @@
         };
 
         window.genereazaFaza2 = async () => {
-            if(!isAdmin()) return alert("Doar adminul poate genera faza 2!");
-            if(!confirm("Generezi Faza 2 folosind primii 2 din fiecare grupa actuala?")) return;
+            if(!isAdmin()) return;
+            if(!confirm("Vrei să generezi Faza 2 folosind rezultatele actuale din cele 8 grupe?")) return;
 
             const f1 = currentSezonData.f1;
-            const getP = (gr, loc) => {
-                const clas = calculeazaClasament(f1[gr]);
-                return clas[loc-1] ? clas[loc-1].nume : `Loc ${loc} ${gr}`;
+            const getP = (grName, pos) => {
+                const c = calculeazaClasament(f1[grName]);
+                return c[pos-1] ? c[pos-1].nume : `Loc ${pos} ${grName}`;
             };
 
             const scheme = {
-                "A": [getP("A",1), getP("B",2), getP("C",1), getP("D",2)],
-                "B": [getP("A",2), getP("B",1), getP("C",2), getP("D",1)],
-                "C": [getP("E",1), getP("F",2), getP("G",1), getP("H",2)],
-                "D": [getP("E",2), getP("F",1), getP("G",2), getP("H",1)]
+                "A": [getP("A", 1), getP("B", 2), getP("C", 1), getP("D", 2)],
+                "B": [getP("A", 2), getP("B", 1), getP("C", 2), getP("D", 1)],
+                "C": [getP("E", 1), getP("F", 2), getP("G", 1), getP("H", 2)],
+                "D": [getP("E", 2), getP("F", 1), getP("G", 2), getP("H", 1)]
             };
 
             let noulF2 = {};
-            Object.keys(scheme).forEach(numeG => {
-                const part = scheme[numeG];
+            Object.keys(scheme).forEach(gn => {
+                const part = scheme[gn];
                 let meciuri = [];
                 let mid = 1;
-                for(let i=0; i<part.length; i++) {
-                    for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m2${numeG}${mid++}`, p1: part[i], p2: part[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
+                for(let i=0; i<part.length; i++){
+                    for(let j=i+1; j<part.length; j++){
+                        meciuri.push({ id: `f2_${gn}_${mid++}`, p1: part[i], p2: part[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
                     }
                 }
-                noulF2[numeG] = { participanti: part, meciuri: meciuri };
+                noulF2[gn] = { participanti: part, meciuri: meciuri };
             });
 
-            // Folosim updateDoc pentru a adauga f2 fara a sterge f1
             await updateDoc(doc(db, "sezoane", "JOKER_2"), { f2: noulF2 });
-            alert("Faza 2 a fost adăugată sub Faza Grupelor!");
+            alert("Faza 2 a fost generată!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, tit) => {
@@ -117,7 +116,7 @@
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
-                    <div class="flex gap-4 items-center">
+                    <div class="flex gap-4">
                         ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-blue-600 px-2 py-1 rounded font-bold uppercase">Generează Faza 2</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
@@ -129,18 +128,16 @@
                             <span>Câștigător Ediția #1</span><span>🏆</span>
                          </div>`;
 
-                if(currentSezonData && currentSezonData.f2) {
-                    html += `<div class="mb-4 ml-1 flex items-center gap-2"><div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div><h2 class="text-xs font-black uppercase text-blue-500 italic">Faza 2 (Actuală)</h2></div>
-                             <div class="grid grid-cols-2 gap-4 mb-12">`;
+                if(currentSezonData?.f2) {
+                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-blue-500">Faza 2</h2><div class="grid grid-cols-2 gap-4 mb-10">`;
                     Object.keys(currentSezonData.f2).sort().forEach(gk => {
-                        html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
+                        html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
                     });
                     html += `</div>`;
                 }
 
-                if(currentSezonData && currentSezonData.f1) {
-                    html += `<div class="mb-4 ml-1"><h2 class="text-xs font-black uppercase text-slate-500 italic">Arhivă Faza Grupelor</h2></div>
-                             <div class="grid grid-cols-4 gap-2 mb-12">`;
+                if(currentSezonData?.f1) {
+                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-slate-500">Faza Grupelor</h2><div class="grid grid-cols-4 gap-2 mb-10">`;
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
                         html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/40 p-4 rounded-xl border border-white/5 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic">${gk}</div>`;
                     });
@@ -150,16 +147,14 @@
                 html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500">← Înapoi</button>
                          <div class="space-y-4">
                             <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-16 h-16 rounded-full border-2 border-yellow-500 bg-slate-800"></div>
-                                    <div><span class="block text-[10px] font-black uppercase text-yellow-500">Locul 1</span><span class="text-2xl font-black italic uppercase">Ovidiu Miclaus</span></div>
-                                </div><div class="text-4xl">🏆</div>
+                                <div><span class="block text-[10px] font-black uppercase text-yellow-500">Locul 1</span><span class="text-2xl font-black italic uppercase">Ovidiu Miclaus</span></div>
+                                <div class="text-4xl">🏆</div>
                             </div>
                          </div>`;
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold text-blue-500 uppercase">← Înapoi</button>
-                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">${state.faza === 'f2' ? 'Faza 2 - ' : ''}Grupa ${state.idGrupa}</div>
+                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} (${state.faza.toUpperCase()})</div>
                          <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase"><th class="text-left pb-2 pl-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
                             ${c.map(x => `<tr class="border-t border-white/5 ${top2.includes(x.nume) ? 'text-green-500' : ''}">
@@ -170,9 +165,7 @@
                     g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
                         const adv = m.p1 === j ? m.p2 : m.p1, sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`, sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
                         html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                ${drawUser(adv, "w-8 h-8", "text-[11px] font-bold text-blue-400")}
-                            </div>
+                            <div class="flex items-center gap-3">${drawUser(adv, "w-8 h-8", "text-blue-400 font-bold")}</div>
                             <div class="flex gap-2">
                                 <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
                                 <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
