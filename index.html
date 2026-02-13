@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Joker</title>
+    <title>Turneu Joker - Faza 2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -43,10 +43,6 @@
         window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        window.activeazaNotificari = () => {
-            Notification.requestPermission().then(perm => { if (perm === "granted") alert("Notificări activate!"); });
-        };
-
         const trimiteNotificareLocala = (titlu, msg) => {
             if (Notification.permission === "granted" && !primaIncarcare) {
                 new Notification(titlu, { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/771/771239.png' });
@@ -70,7 +66,7 @@
             if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
-            meci.lastUpdate = Date.now(); // Adăugăm timestamp pentru sortare corectă
+            meci.lastUpdate = Date.now();
             await updateDoc(doc(db, "sezoane", "JOKER_2"), data);
         };
 
@@ -95,16 +91,19 @@
                 </nav>`;
 
             if(state.pagina === "home") {
-                html += `<div class="text-center mb-6"><h2 class="text-3xl font-black italic uppercase">Faza Grupelor</h2></div>
+                html += `<div class="text-center mb-6"><h2 class="text-3xl font-black italic uppercase">Faza 2</h2></div>
                          <div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>
                          <div onclick="nav('podium')" class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 p-6 rounded-3xl mb-10 cursor-pointer text-xs font-black uppercase tracking-widest text-blue-400 flex justify-between">
                             <span>Câștigător Ediția #1</span><span>🏆</span>
                          </div>
                          <div class="grid grid-cols-2 gap-4 mb-12">`;
                 if(currentSezonData) {
-                    Object.keys(currentSezonData.f1).sort().forEach(gk => {
-                        if(!state.search || currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search))) {
-                            html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
+                    // Afișăm Grupele A, B, C, D pentru Faza 2
+                    ["A", "B", "C", "D"].forEach(gk => {
+                        if(currentSezonData.f1[gk]) {
+                            if(!state.search || currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search))) {
+                                html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
+                            }
                         }
                     });
                 }
@@ -115,9 +114,7 @@
                     Object.keys(currentSezonData.f1).forEach(gk => {
                         currentSezonData.f1[gk].meciuri.filter(m => m.gata).forEach(m => toate.push({...m, grupa: gk}));
                     });
-                    // Sortăm după timestamp-ul ultimei modificări (cele mai noi primele)
                     const ultimele = toate.sort((a,b) => (b.lastUpdate || 0) - (a.lastUpdate || 0)).slice(0, 8);
-                    
                     html += `<div class="mb-10"><h3 class="text-xs font-black uppercase text-slate-500 mb-4 ml-1 italic">Activitate</h3><div class="space-y-2">`;
                     ultimele.forEach(m => {
                         html += `<div class="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex justify-between items-center text-[11px]">
@@ -128,10 +125,6 @@
                     });
                     html += `</div></div>`;
                 }
-
-                html += `<div class="bg-blue-600/10 border border-blue-500/20 p-6 rounded-3xl text-center mb-10">
-                    <button onclick="activeazaNotificari()" class="bg-blue-600 text-white text-[10px] font-black uppercase py-3 px-8 rounded-full shadow-lg">🔔 Activare Notificări</button>
-                </div>`;
             } else if(state.pagina === "podium") {
                 const oviImg = dateJucatori["Ovidiu Miclaus"]?.poza || "";
                 html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500">← Înapoi</button>
