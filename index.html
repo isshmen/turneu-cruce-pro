@@ -51,24 +51,28 @@
             </div>`;
         };
 
+        const calculeazaClasament = (g) => {
+            if(!g || !g.participanti) return [];
+            let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
+            g.meciuri.forEach(m => {
+                if(!m.gata) return;
+                [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
+                    if(s.s1 > s.s2) st[m.p1].v++; else if(s.s2 > s.s1) st[m.p2].v++;
+                    st[m.p1].c += s.s1; st[m.p1].p += s.s2; st[m.p2].c += s.s2; st[m.p2].p += s.s1;
+                });
+            });
+            return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
+        };
+
         window.genereazaFaza2 = async () => {
             if(!isAdmin()) return alert("Doar adminul poate genera faza 2!");
-            if(!confirm("Generezi Faza 2 folosind clasamentele din Faza Grupelor?")) return;
-
-            const calculeazaLocuri = (g) => {
-                let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
-                g.meciuri.forEach(m => {
-                    if(!m.gata) return;
-                    [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
-                        if(s.s1 > s.s2) st[m.p1].v++; else if(s.s2 > s.s1) st[m.p2].v++;
-                        st[m.p1].c += s.s1; st[m.p1].p += s.s2; st[m.p2].c += s.s2; st[m.p2].p += s.s1;
-                    });
-                });
-                return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
-            };
+            if(!confirm("Generezi Faza 2 folosind primii 2 din fiecare grupa actuala?")) return;
 
             const f1 = currentSezonData.f1;
-            const getP = (gr, loc) => calculeazaLocuri(f1[gr])[loc-1].nume;
+            const getP = (gr, loc) => {
+                const clas = calculeazaClasament(f1[gr]);
+                return clas[loc-1] ? clas[loc-1].nume : `Loc ${loc} ${gr}`;
+            };
 
             const scheme = {
                 "A": [getP("A",1), getP("B",2), getP("C",1), getP("D",2)],
@@ -90,8 +94,9 @@
                 noulF2[numeG] = { participanti: part, meciuri: meciuri };
             });
 
+            // Folosim updateDoc pentru a adauga f2 fara a sterge f1
             await updateDoc(doc(db, "sezoane", "JOKER_2"), { f2: noulF2 });
-            alert("Faza 2 generată!");
+            alert("Faza 2 a fost adăugată sub Faza Grupelor!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, tit) => {
@@ -107,25 +112,13 @@
             await setDoc(doc(db, "sezoane", "JOKER_2"), data);
         };
 
-        const calculeazaClasament = (g) => {
-            let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
-            g.meciuri.forEach(m => {
-                if(!m.gata) return;
-                [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
-                    if(s.s1 > s.s2) st[m.p1].v++; else if(s.s2 > s.s1) st[m.p2].v++;
-                    st[m.p1].c += s.s1; st[m.p1].p += s.s2; st[m.p2].c += s.s2; st[m.p2].p += s.s1;
-                });
-            });
-            return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
-        };
-
         async function render() {
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
                     <div class="flex gap-4 items-center">
-                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Gen. Faza 2</button>` : ''}
+                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-blue-600 px-2 py-1 rounded font-bold uppercase">Generează Faza 2</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
@@ -137,7 +130,7 @@
                          </div>`;
 
                 if(currentSezonData && currentSezonData.f2) {
-                    html += `<div class="mb-4 ml-1 flex items-center gap-2"><div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div><h2 class="text-xs font-black uppercase text-blue-500 italic">Faza 2</h2></div>
+                    html += `<div class="mb-4 ml-1 flex items-center gap-2"><div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div><h2 class="text-xs font-black uppercase text-blue-500 italic">Faza 2 (Actuală)</h2></div>
                              <div class="grid grid-cols-2 gap-4 mb-12">`;
                     Object.keys(currentSezonData.f2).sort().forEach(gk => {
                         html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
@@ -146,40 +139,22 @@
                 }
 
                 if(currentSezonData && currentSezonData.f1) {
-                    html += `<div class="mb-4 ml-1"><h2 class="text-xs font-black uppercase text-slate-500 italic">Faza Grupelor</h2></div>
+                    html += `<div class="mb-4 ml-1"><h2 class="text-xs font-black uppercase text-slate-500 italic">Arhivă Faza Grupelor</h2></div>
                              <div class="grid grid-cols-4 gap-2 mb-12">`;
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
                         html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/40 p-4 rounded-xl border border-white/5 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic">${gk}</div>`;
                     });
                     html += `</div>`;
                 }
-
-                if(currentSezonData) {
-                    let toate = [];
-                    ["f1", "f2"].forEach(f => { if(currentSezonData[f]) Object.keys(currentSezonData[f]).forEach(gk => { currentSezonData[f][gk].meciuri.filter(m => m.gata).forEach(m => toate.push({...m, grupa: gk, faza: f})); }); });
-                    const ultimele = toate.sort((a,b) => (b.lastUpdate || 0) - (a.lastUpdate || 0)).slice(0, 5);
-                    html += `<div class="mb-10"><h3 class="text-xs font-black uppercase text-slate-700 mb-4 ml-1 italic">Ultimile rezultate</h3><div class="space-y-2">`;
-                    ultimele.forEach(m => {
-                        html += `<div class="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex justify-between items-center text-[10px]">
-                            <span class="text-slate-500 font-bold uppercase">${m.faza === 'f2' ? 'F2' : 'Gr'} ${m.grupa}</span>
-                            <span class="italic truncate px-2 font-medium">${m.p1} vs ${m.p2}</span>
-                            <span class="font-black text-white bg-black px-2 py-1 rounded">(${m.s1t}-${m.s2t}) (${m.s1r}-${m.s2r})</span>
-                        </div>`;
-                    });
-                    html += `</div></div>`;
-                }
             } else if(state.pagina === "podium") {
-                const oviImg = dateJucatori["Ovidiu Miclaus"]?.poza || "";
                 html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500">← Înapoi</button>
                          <div class="space-y-4">
                             <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center">
                                 <div class="flex items-center gap-4">
-                                    ${oviImg ? `<img src="${oviImg}" class="w-16 h-16 rounded-full border-2 border-yellow-500 object-cover">` : `<div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-yellow-500"></div>`}
+                                    <div class="w-16 h-16 rounded-full border-2 border-yellow-500 bg-slate-800"></div>
                                     <div><span class="block text-[10px] font-black uppercase text-yellow-500">Locul 1</span><span class="text-2xl font-black italic uppercase">Ovidiu Miclaus</span></div>
                                 </div><div class="text-4xl">🏆</div>
                             </div>
-                            <div class="bg-slate-900 p-6 rounded-[2rem] flex justify-between items-center">${drawUser("Gerard Miodrag", "w-12 h-12", "text-xl")}<div class="text-2xl opacity-50">🥈</div></div>
-                            <div class="bg-slate-900 p-6 rounded-[2rem] flex justify-between items-center">${drawUser("Dan Marius", "w-12 h-12", "text-xl")}<div class="text-2xl opacity-30">🥉</div></div>
                          </div>`;
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
@@ -188,21 +163,15 @@
                          <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase"><th class="text-left pb-2 pl-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
                             ${c.map(x => `<tr class="border-t border-white/5 ${top2.includes(x.nume) ? 'text-green-500' : ''}">
-                                <td class="py-3 pl-2">${drawUser(x.nume, "w-6 h-6")}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-center">${x.p}</td>
+                                <td class="py-3 pl-2">${drawUser(x.nume)}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-center">${x.p}</td>
                             </tr>`).join('')}</table></div>`;
                 g.participanti.forEach(j => {
                     html += `<div class="mb-10"><div class="flex items-center gap-4 mb-5 ml-1 p-2 border-l-4 border-blue-500 bg-slate-900/30 rounded-r-xl">${drawUser(j, "w-14 h-14", "text-xl font-black")}</div>`;
                     g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
                         const adv = m.p1 === j ? m.p2 : m.p1, sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`, sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
-                        const pEu = dateJucatori[j]?.poza, pAd = dateJucatori[adv]?.poza;
-                        html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 flex justify-between items-center shadow-sm">
+                        html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 flex justify-between items-center">
                             <div class="flex items-center gap-3">
-                                ${pEu ? `<img src="${pEu}" class="w-8 h-8 rounded-full object-cover">` : `<div class="w-8 h-8 rounded-full bg-slate-800"></div>`}
-                                <span class="text-[10px] font-black text-slate-600 italic uppercase">vs</span>
-                                <div class="flex items-center gap-2">
-                                    ${pAd ? `<img src="${pAd}" class="w-8 h-8 rounded-full object-cover">` : `<div class="w-8 h-8 rounded-full bg-slate-800"></div>`}
-                                    <span class="text-[11px] uppercase italic font-bold text-blue-400">${adv}</span>
-                                </div>
+                                ${drawUser(adv, "w-8 h-8", "text-[11px] font-bold text-blue-400")}
                             </div>
                             <div class="flex gap-2">
                                 <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
