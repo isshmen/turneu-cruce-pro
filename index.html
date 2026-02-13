@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Joker - Faza 2</title>
+    <title>Turneu Joker - Ediția #2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
@@ -26,7 +26,7 @@
 
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {}, primaIncarcare = true;
-        let state = { pagina: "home", idGrupa: null, search: "" };
+        let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
@@ -40,7 +40,7 @@
         };
 
         window.logout = () => signOut(auth);
-        window.nav = (p, g=null) => { state = { ...state, pagina:p, idGrupa:g }; render(); };
+        window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]") => {
@@ -51,10 +51,9 @@
             </div>`;
         };
 
-        // FUNCTIE RESET & GENERARE FAZA 2 (Ruleaza o singura data de catre Admin)
         window.genereazaFaza2 = async () => {
             if(!isAdmin()) return alert("Doar adminul poate genera faza 2!");
-            if(!confirm("Ești sigur că vrei să resetezi totul și să generezi cele 4 grupe pentru Faza 2?")) return;
+            if(!confirm("Generezi Faza 2 folosind clasamentele din Faza Grupelor?")) return;
 
             const calculeazaLocuri = (g) => {
                 let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
@@ -78,21 +77,21 @@
                 "D": [getP("E",2), getP("F",1), getP("G",2), getP("H",1)]
             };
 
-            let noulF1 = {};
+            let noulF2 = {};
             Object.keys(scheme).forEach(numeG => {
                 const part = scheme[numeG];
                 let meciuri = [];
                 let mid = 1;
                 for(let i=0; i<part.length; i++) {
                     for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m${numeG}${mid++}`, p1: part[i], p2: part[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
+                        meciuri.push({ id: `m2${numeG}${mid++}`, p1: part[i], p2: part[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
                     }
                 }
-                noulF1[numeG] = { participanti: part, meciuri: meciuri };
+                noulF2[numeG] = { participanti: part, meciuri: meciuri };
             });
 
-            await setDoc(doc(db, "sezoane", "JOKER_2"), { f1: noulF1 });
-            alert("Faza 2 generată cu succes!");
+            await updateDoc(doc(db, "sezoane", "JOKER_2"), { f2: noulF2 });
+            alert("Faza 2 generată!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, tit) => {
@@ -100,12 +99,12 @@
             const val = prompt(`Scor (ex: 2-0):`);
             if(!val) return;
             let [v1, v2] = val.split("-").map(Number);
-            let data = {...currentSezonData}, meci = data.f1[state.idGrupa].meciuri.find(m => m.id === mId);
+            let data = {...currentSezonData}, meci = data[state.faza][state.idGrupa].meciuri.find(m => m.id === mId);
             if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
             meci.lastUpdate = Date.now();
-            await updateDoc(doc(db, "sezoane", "JOKER_2"), data);
+            await setDoc(doc(db, "sezoane", "JOKER_2"), data);
         };
 
         const calculeazaClasament = (g) => {
@@ -126,37 +125,43 @@
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
                     <div class="flex gap-4 items-center">
-                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Reset Faza 2</button>` : ''}
+                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Gen. Faza 2</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if(state.pagina === "home") {
-                html += `<div class="text-center mb-6"><h2 class="text-3xl font-black italic uppercase">Faza 2</h2></div>
-                         <div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>
+                html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>
                          <div onclick="nav('podium')" class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 p-6 rounded-3xl mb-10 cursor-pointer text-xs font-black uppercase tracking-widest text-blue-400 flex justify-between">
                             <span>Câștigător Ediția #1</span><span>🏆</span>
-                         </div>
-                         <div class="grid grid-cols-2 gap-4 mb-12">`;
-                if(currentSezonData) {
-                    Object.keys(currentSezonData.f1).sort().forEach(gk => {
-                        if(!state.search || currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search))) {
-                            html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
-                        }
+                         </div>`;
+
+                if(currentSezonData && currentSezonData.f2) {
+                    html += `<div class="mb-4 ml-1 flex items-center gap-2"><div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div><h2 class="text-xs font-black uppercase text-blue-500 italic">Faza 2</h2></div>
+                             <div class="grid grid-cols-2 gap-4 mb-12">`;
+                    Object.keys(currentSezonData.f2).sort().forEach(gk => {
+                        html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
                     });
+                    html += `</div>`;
                 }
-                html += `</div>`;
+
+                if(currentSezonData && currentSezonData.f1) {
+                    html += `<div class="mb-4 ml-1"><h2 class="text-xs font-black uppercase text-slate-500 italic">Faza Grupelor</h2></div>
+                             <div class="grid grid-cols-4 gap-2 mb-12">`;
+                    Object.keys(currentSezonData.f1).sort().forEach(gk => {
+                        html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/40 p-4 rounded-xl border border-white/5 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic">${gk}</div>`;
+                    });
+                    html += `</div>`;
+                }
 
                 if(currentSezonData) {
                     let toate = [];
-                    Object.keys(currentSezonData.f1).forEach(gk => {
-                        currentSezonData.f1[gk].meciuri.filter(m => m.gata).forEach(m => toate.push({...m, grupa: gk}));
-                    });
-                    const ultimele = toate.sort((a,b) => (b.lastUpdate || 0) - (a.lastUpdate || 0)).slice(0, 8);
-                    html += `<div class="mb-10"><h3 class="text-xs font-black uppercase text-slate-500 mb-4 ml-1 italic">Activitate</h3><div class="space-y-2">`;
+                    ["f1", "f2"].forEach(f => { if(currentSezonData[f]) Object.keys(currentSezonData[f]).forEach(gk => { currentSezonData[f][gk].meciuri.filter(m => m.gata).forEach(m => toate.push({...m, grupa: gk, faza: f})); }); });
+                    const ultimele = toate.sort((a,b) => (b.lastUpdate || 0) - (a.lastUpdate || 0)).slice(0, 5);
+                    html += `<div class="mb-10"><h3 class="text-xs font-black uppercase text-slate-700 mb-4 ml-1 italic">Ultimile rezultate</h3><div class="space-y-2">`;
                     ultimele.forEach(m => {
-                        html += `<div class="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex justify-between items-center text-[11px]">
-                            <span class="text-blue-500 font-bold uppercase">Gr ${m.grupa}</span>
+                        html += `<div class="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex justify-between items-center text-[10px]">
+                            <span class="text-slate-500 font-bold uppercase">${m.faza === 'f2' ? 'F2' : 'Gr'} ${m.grupa}</span>
                             <span class="italic truncate px-2 font-medium">${m.p1} vs ${m.p2}</span>
                             <span class="font-black text-white bg-black px-2 py-1 rounded">(${m.s1t}-${m.s2t}) (${m.s1r}-${m.s2r})</span>
                         </div>`;
@@ -177,9 +182,9 @@
                             <div class="bg-slate-900 p-6 rounded-[2rem] flex justify-between items-center">${drawUser("Dan Marius", "w-12 h-12", "text-xl")}<div class="text-2xl opacity-30">🥉</div></div>
                          </div>`;
             } else if(state.pagina === "grupa") {
-                const g = currentSezonData.f1[state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
+                const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold text-blue-500 uppercase">← Înapoi</button>
-                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa}</div>
+                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">${state.faza === 'f2' ? 'Faza 2 - ' : ''}Grupa ${state.idGrupa}</div>
                          <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase"><th class="text-left pb-2 pl-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
                             ${c.map(x => `<tr class="border-t border-white/5 ${top2.includes(x.nume) ? 'text-green-500' : ''}">
@@ -211,13 +216,7 @@
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
-        onSnapshot(doc(db, "sezoane", "JOKER_2"), s => { 
-            if(s.exists()) { 
-                currentSezonData = s.data(); 
-                primaIncarcare = false;
-                render(); 
-            } 
-        });
+        onSnapshot(doc(db, "sezoane", "JOKER_2"), s => { if(s.exists()) { currentSezonData = s.data(); render(); } });
         onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
     </script>
 </head>
