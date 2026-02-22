@@ -53,7 +53,6 @@
                 "3": ["Vlad Tino si Cami Alessia", "Adi Ignat si Ancuta Sacota", "Ionel Muntean si Andreea Tontea", "Jozsef Zsolt si Mihai Lungu"],
                 "4": ["Andrey Mato si Ioana Cioanca", "Carina Luca si Julia K", "Cristian Patrut si Florin Ginsca", "Nicoleta Ghiata si Livia Holdis"]
             };
-
             let f1 = {};
             Object.keys(structura).forEach(gk => {
                 const p = structura[gk];
@@ -65,9 +64,26 @@
                 }
                 f1[gk] = { participanti: p, meciuri: meciuri };
             });
-
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ', fazaCurenta: 'f1' });
             alert("Sezonul 2 a fost inițializat!");
+        };
+
+        window.genereazaSemifinale = async () => {
+            if (!isAdmin() || !currentSezonData?.f1) return;
+            const c1 = calculeazaClasament(currentSezonData.f1["1"]);
+            const c2 = calculeazaClasament(currentSezonData.f1["2"]);
+            const c3 = calculeazaClasament(currentSezonData.f1["3"]);
+            const c4 = calculeazaClasament(currentSezonData.f1["4"]);
+
+            const semiMeciuri = [
+                { id: "semi_1", p1: c1[0].nume, p2: c2[1].nume, scor: [0,0,0,0,0], gata: false, titlu: "S1: L1 G1 vs L2 G2" },
+                { id: "semi_2", p1: c1[1].nume, p2: c2[0].nume, scor: [0,0,0,0,0], gata: false, titlu: "S2: L2 G1 vs L1 G2" },
+                { id: "semi_3", p1: c3[0].nume, p2: c4[1].nume, scor: [0,0,0,0,0], gata: false, titlu: "S3: L1 G3 vs L2 G4" },
+                { id: "semi_4", p1: c3[1].nume, p2: c4[0].nume, scor: [0,0,0,0,0], gata: false, titlu: "S4: L2 G3 vs L1 G4" }
+            ];
+
+            await updateDoc(doc(db, "sezoane", SEZON_ID), { semi: semiMeciuri });
+            alert("Semifinalele au fost generate!");
         };
 
         const calculeazaClasament = (g) => {
@@ -97,30 +113,37 @@
             await updateDoc(doc(db, "sezoane", SEZON_ID), data);
         };
 
+        window.updateSemi = async (mId, setIdx) => {
+            if (!isAdmin()) return;
+            const val = prompt("Cine a câștigat setul? (1 pt echipa de sus, 2 pt cea de jos):");
+            if (val !== "1" && val !== "2") return;
+            let data = { ...currentSezonData };
+            let meci = data.semi.find(m => m.id === mId);
+            meci.scor[setIdx] = parseInt(val);
+            meci.gata = true;
+            await updateDoc(doc(db, "sezoane", SEZON_ID), data);
+        };
+
         async function render() {
             const root = document.getElementById('app');
             let html = `<div class="max-w-3xl mx-auto p-4 text-white min-h-screen pb-24">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
                     <h1 onclick="nav('home')" class="font-black text-2xl cursor-pointer italic uppercase">Best Teams <span class="text-blue-500">#2</span></h1>
                     <div class="flex gap-2">
+                        ${isAdmin() && currentSezonData && !currentSezonData.semi ? `<button onclick="genereazaSemifinale()" class="text-[8px] bg-blue-600 px-2 py-1 rounded">GENEREAZĂ SEMIFINALE</button>` : ''}
                         ${isAdmin() && !currentSezonData ? `<button onclick="initSezon2()" class="text-[8px] bg-red-600 px-2 py-1 rounded">START SEZON 2</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Logout</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if (state.pagina === "home") {
-                html += `<div class="mb-8">
-                    <input type="text" oninput="handleSearch(this.value)" placeholder="Caută jucător..." class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all" value="${state.search}">
-                </div>`;
+                html += `<div class="mb-8"><input type="text" oninput="handleSearch(this.value)" placeholder="Caută jucător..." class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all" value="${state.search}"></div>`;
 
                 if (currentSezonData?.f1) {
                     html += `<h2 class="text-xs font-black uppercase text-slate-500 mb-6 tracking-widest text-center">Faza Grupelor</h2>
                              <div class="grid grid-cols-2 gap-4">`;
-                    
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
-                        const participanti = currentSezonData.f1[gk].participanti;
-                        const matchSearch = participanti.some(p => p.toLowerCase().includes(state.search));
-                        
+                        const matchSearch = currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search));
                         if (state.search === "" || matchSearch) {
                             html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all shadow-2xl">
                                 <div class="text-[10px] font-black text-slate-500 mb-2 tracking-widest uppercase">Grupa</div>
@@ -129,14 +152,38 @@
                         }
                     });
                     html += `</div>`;
+                }
 
-                    html += `
-                        <div class="mt-12">
-                            <h3 class="text-[10px] font-black uppercase text-slate-500 mb-4 tracking-widest text-center">Configurație Echipe</h3>
-                            <div class="bg-slate-900 p-2 rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden">
-                                <img src="https://i.ibb.co/q3mRnYqD/teams.png" alt="Echipe" class="w-full h-auto rounded-[2rem] opacity-90 block">
+                if (currentSezonData?.semi) {
+                    html += `<h2 class="text-xs font-black uppercase text-blue-500 mt-16 mb-8 tracking-widest text-center">Semifinale (3/5)</h2>
+                             <div class="space-y-6">`;
+                    currentSezonData.semi.forEach(m => {
+                        const v1 = m.scor.filter(s => s === 1).length;
+                        const v2 = m.scor.filter(s => s === 2).length;
+                        html += `<div class="bg-slate-900 p-6 rounded-[2rem] border border-blue-900/30">
+                            <div class="text-[8px] font-black text-slate-500 uppercase mb-4 text-center tracking-[0.3em]">${m.titlu}</div>
+                            <div class="flex justify-between items-center px-4">
+                                <div class="w-2/5 text-right"><div class="text-[11px] font-black uppercase italic ${v1 > v2 ? 'text-green-400' : 'text-white'}">${m.p1}</div></div>
+                                <div class="flex flex-col items-center mx-4">
+                                    <div class="text-3xl font-black italic text-blue-500">${v1} - ${v2}</div>
+                                </div>
+                                <div class="w-2/5 text-left"><div class="text-[11px] font-black uppercase italic ${v2 > v1 ? 'text-green-400' : 'text-white'}">${m.p2}</div></div>
+                            </div>
+                            <div class="flex justify-center gap-2 mt-6">
+                                ${m.scor.map((s, idx) => `
+                                    <button onclick="updateSemi('${m.id}', ${idx})" class="w-10 h-10 rounded-xl border ${s === 0 ? 'border-slate-800 text-slate-600' : s === 1 ? 'border-blue-500 bg-blue-500/20 text-blue-400' : 'border-green-500 bg-green-500/20 text-green-400'} text-[10px] font-black ${!isAdmin() ? 'pointer-events-none' : ''}">
+                                        ${s === 0 ? idx + 1 : s === 1 ? 'P1' : 'P2'}
+                                    </button>
+                                `).join('')}
                             </div>
                         </div>`;
+                    });
+                    html += `</div>`;
+                }
+
+                if (currentSezonData?.f1) {
+                    html += `<div class="mt-12 text-center"><h3 class="text-[10px] font-black uppercase text-slate-500 mb-4 tracking-widest">Configurație Echipe</h3>
+                             <div class="bg-slate-900 p-2 rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden"><img src="https://i.ibb.co/q3mRnYqD/teams.png" class="w-full h-auto rounded-[2rem] opacity-90 block"></div></div>`;
                 } else {
                     html += `<div class="text-center text-slate-500 py-10 uppercase font-black text-[10px] tracking-widest">Turneul va începe curând...</div>`;
                 }
@@ -147,15 +194,10 @@
                          <div class="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 mb-10 overflow-x-auto">
                             <table class="w-full text-[11px] font-bold border-separate border-spacing-y-1">
                                 <tr class="text-slate-500 uppercase"><th class="text-left pb-4 text-[9px] px-2">Echipă</th><th class="text-center text-[9px]">V</th><th class="text-center text-[9px]">P+</th><th class="text-right text-[9px] px-2">P-</th></tr>
-                                ${c.map((x, index) => {
-                                    const isQualified = index < 2;
-                                    return `<tr class="${isQualified ? 'bg-green-500/20' : 'border-t border-white/5'}">
-                                        <td class="py-4 uppercase italic ${isQualified ? 'text-green-400' : 'text-blue-400'} text-[10px] px-2 rounded-l-xl">${x.nume}</td>
-                                        <td class="text-center text-white">${x.v}</td>
-                                        <td class="text-center">${x.c}</td>
-                                        <td class="text-right text-slate-500 px-2 rounded-r-xl">${x.p}</td>
-                                    </tr>`;
-                                }).join('')}
+                                ${c.map((x, index) => `<tr class="${index < 2 ? 'bg-green-500/20' : 'border-t border-white/5'}">
+                                    <td class="py-4 uppercase italic ${index < 2 ? 'text-green-400' : 'text-blue-400'} text-[10px] px-2 rounded-l-xl">${x.nume}</td>
+                                    <td class="text-center text-white">${x.v}</td><td class="text-center">${x.c}</td><td class="text-right text-slate-500 px-2 rounded-r-xl">${x.p}</td>
+                                </tr>`).join('')}
                             </table>
                          </div>`;
                 g.participanti.forEach(j => {
@@ -175,13 +217,7 @@
                     html += `</div>`;
                 });
             }
-
-            html += `<footer class="mt-20 border-t border-slate-800 pt-8 text-center pb-10">
-                <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:text-blue-500 transition-colors">
-                    Created by Vali Dragomir
-                </a>
-            </footer>`;
-
+            html += `<footer class="mt-20 border-t border-slate-800 pt-8 text-center pb-10"><a href="https://www.facebook.com/isshmenn" target="_blank" class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:text-blue-500 transition-colors">Created by Vali Dragomir</a></footer>`;
             root.innerHTML = html + `</div>`;
         }
 
