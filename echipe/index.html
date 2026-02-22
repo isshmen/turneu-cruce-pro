@@ -134,26 +134,6 @@
             if (state.pagina === "home") {
                 html += `<div class="mb-8"><input type="text" oninput="handleSearch(this.value)" placeholder="Caută jucător..." class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all" value="${state.search}"></div>`;
 
-                if (currentSezonData?.semi) {
-                    html += `<h2 class="text-xs font-black uppercase text-blue-500 mb-8 tracking-widest text-center">Semifinale (Tur-Retur 3/5)</h2>
-                             <div class="space-y-6 mb-16">`;
-                    currentSezonData.semi.forEach(m => {
-                        html += `<div class="bg-slate-900 p-6 rounded-[2.5rem] border border-blue-900/30 shadow-2xl">
-                            <div class="text-[8px] font-black text-slate-500 uppercase mb-4 text-center tracking-[0.3em]">${m.titlu}</div>
-                            <div class="flex justify-between items-center px-2 mb-6">
-                                <div class="w-2/5 text-right font-black italic text-[11px] uppercase text-blue-400">${m.p1}</div>
-                                <div class="text-2xl font-black italic text-white mx-4">${m.s1t + m.s1r} - ${m.s2t + m.s2r}</div>
-                                <div class="w-2/5 text-left font-black italic text-[11px] uppercase text-blue-400">${m.p2}</div>
-                            </div>
-                            <div class="flex justify-center gap-3">
-                                <button onclick="updateScor('${m.id}','t','${m.p1}','${m.p2}','${m.p1}', true)" class="bg-black border border-slate-800 px-6 py-2 rounded-xl text-[10px] font-black hover:border-blue-500 transition-all ${!isAdmin() ? 'pointer-events-none' : ''}">TUR: ${m.s1t}-${m.s2t}</button>
-                                <button onclick="updateScor('${m.id}','r','${m.p1}','${m.p2}','${m.p1}', true)" class="bg-black border border-slate-800 px-6 py-2 rounded-xl text-[10px] font-black hover:border-blue-500 transition-all ${!isAdmin() ? 'pointer-events-none' : ''}">RETUR: ${m.s1r}-${m.s2r}</button>
-                            </div>
-                        </div>`;
-                    });
-                    html += `</div>`;
-                }
-
                 if (currentSezonData?.f1) {
                     html += `<h2 class="text-xs font-black uppercase text-slate-500 mb-6 tracking-widest text-center">Faza Grupelor</h2>
                              <div class="grid grid-cols-2 gap-4">`;
@@ -167,8 +147,28 @@
                         }
                     });
                     html += `</div>`;
-                    html += `<div class="mt-12 text-center"><h3 class="text-[10px] font-black uppercase text-slate-500 mb-4 tracking-widest">Configurație Echipe</h3>
-                             <div class="bg-slate-900 p-2 rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden"><img src="https://i.ibb.co/q3mRnYqD/teams.png" class="w-full h-auto rounded-[2rem] opacity-90 block"></div></div>`;
+                }
+
+                if (currentSezonData?.semi) {
+                    html += `<h2 class="text-xs font-black uppercase text-blue-500 mt-16 mb-8 tracking-widest text-center">Semifinale (Tur-Retur 3/5)</h2>
+                             <div class="space-y-6">`;
+                    currentSezonData.semi.forEach(m => {
+                        const total1 = (m.s1t || 0) + (m.s1r || 0);
+                        const total2 = (m.s2t || 0) + (m.s2r || 0);
+                        html += `<div class="bg-slate-900 p-6 rounded-[2.5rem] border border-blue-900/30 shadow-2xl">
+                            <div class="text-[8px] font-black text-slate-500 uppercase mb-4 text-center tracking-[0.3em]">${m.titlu}</div>
+                            <div class="flex justify-between items-center px-2 mb-6">
+                                <div class="w-2/5 text-right font-black italic text-[11px] uppercase text-blue-400 leading-tight">${m.p1}</div>
+                                <div class="text-2xl font-black italic text-white mx-4">${total1} - ${total2}</div>
+                                <div class="w-2/5 text-left font-black italic text-[11px] uppercase text-blue-400 leading-tight">${m.p2}</div>
+                            </div>
+                            <div class="flex justify-center gap-3">
+                                <button onclick="updateScor('${m.id}','t','${m.p1}','${m.p2}','${m.p1}', true)" class="bg-black border border-slate-800 px-6 py-2 rounded-xl text-[10px] font-black hover:border-blue-500 transition-all ${!isAdmin() ? 'pointer-events-none' : ''}">TUR: ${m.s1t || 0}-${m.s2t || 0}</button>
+                                <button onclick="updateScor('${m.id}','r','${m.p1}','${m.p2}','${m.p1}', true)" class="bg-black border border-slate-800 px-6 py-2 rounded-xl text-[10px] font-black hover:border-blue-500 transition-all ${!isAdmin() ? 'pointer-events-none' : ''}">RETUR: ${m.s1r || 0}-${m.s2r || 0}</button>
+                            </div>
+                        </div>`;
+                    });
+                    html += `</div>`;
                 }
             } else if (state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
