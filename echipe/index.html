@@ -76,14 +76,14 @@
             const c4 = calculeazaClasament(currentSezonData.f1["4"]);
 
             const semiMeciuri = [
-                { id: "semi_1", p1: c1[0].nume, p2: c2[1].nume, scor: [0,0,0,0,0], gata: false, titlu: "S1: L1 G1 vs L2 G2" },
-                { id: "semi_2", p1: c1[1].nume, p2: c2[0].nume, scor: [0,0,0,0,0], gata: false, titlu: "S2: L2 G1 vs L1 G2" },
-                { id: "semi_3", p1: c3[0].nume, p2: c4[1].nume, scor: [0,0,0,0,0], gata: false, titlu: "S3: L1 G3 vs L2 G4" },
-                { id: "semi_4", p1: c3[1].nume, p2: c4[0].nume, scor: [0,0,0,0,0], gata: false, titlu: "S4: L2 G3 vs L1 G4" }
+                { id: "semi_1", p1: c1[0].nume, p2: c2[1].nume, tur: [0,0,0,0,0], retur: [0,0,0,0,0], titlu: "S1: L1 G1 vs L2 G2" },
+                { id: "semi_2", p1: c1[1].nume, p2: c2[0].nume, tur: [0,0,0,0,0], retur: [0,0,0,0,0], titlu: "S2: L2 G1 vs L1 G2" },
+                { id: "semi_3", p1: c3[0].nume, p2: c4[1].nume, tur: [0,0,0,0,0], retur: [0,0,0,0,0], titlu: "S3: L1 G3 vs L2 G4" },
+                { id: "semi_4", p1: c3[1].nume, p2: c4[0].nume, tur: [0,0,0,0,0], retur: [0,0,0,0,0], titlu: "S4: L2 G3 vs L1 G4" }
             ];
 
             await updateDoc(doc(db, "sezoane", SEZON_ID), { semi: semiMeciuri });
-            alert("Semifinalele au fost generate!");
+            alert("Semifinalele Tur/Retur au fost generate!");
         };
 
         const calculeazaClasament = (g) => {
@@ -113,14 +113,13 @@
             await updateDoc(doc(db, "sezoane", SEZON_ID), data);
         };
 
-        window.updateSemi = async (mId, setIdx) => {
+        window.updateSemi = async (mId, tip, setIdx) => {
             if (!isAdmin()) return;
-            const val = prompt("Cine a câștigat setul? (1 pt echipa de sus, 2 pt cea de jos):");
-            if (val !== "1" && val !== "2") return;
+            const val = prompt("Câștigător set (1 pt echipa stânga, 2 pt echipa dreapta, 0 reset):");
+            if (val !== "1" && val !== "2" && val !== "0") return;
             let data = { ...currentSezonData };
             let meci = data.semi.find(m => m.id === mId);
-            meci.scor[setIdx] = parseInt(val);
-            meci.gata = true;
+            meci[tip][setIdx] = parseInt(val);
             await updateDoc(doc(db, "sezoane", SEZON_ID), data);
         };
 
@@ -130,7 +129,7 @@
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
                     <h1 onclick="nav('home')" class="font-black text-2xl cursor-pointer italic uppercase">Best Teams <span class="text-blue-500">#2</span></h1>
                     <div class="flex gap-2">
-                        ${isAdmin() && currentSezonData && !currentSezonData.semi ? `<button onclick="genereazaSemifinale()" class="text-[8px] bg-blue-600 px-2 py-1 rounded">GENEREAZĂ SEMIFINALE</button>` : ''}
+                        ${isAdmin() && currentSezonData && !currentSezonData.semi ? `<button onclick="genereazaSemifinale()" class="text-[8px] bg-blue-600 px-2 py-1 rounded tracking-tighter">GENEREAZĂ SEMIFINALE</button>` : ''}
                         ${isAdmin() && !currentSezonData ? `<button onclick="initSezon2()" class="text-[8px] bg-red-600 px-2 py-1 rounded">START SEZON 2</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Logout</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
@@ -155,26 +154,45 @@
                 }
 
                 if (currentSezonData?.semi) {
-                    html += `<h2 class="text-xs font-black uppercase text-blue-500 mt-16 mb-8 tracking-widest text-center">Semifinale (3/5)</h2>
-                             <div class="space-y-6">`;
+                    html += `<h2 class="text-xs font-black uppercase text-blue-500 mt-16 mb-8 tracking-widest text-center">Semifinale (Tur-Retur 3/5)</h2>
+                             <div class="space-y-12">`;
                     currentSezonData.semi.forEach(m => {
-                        const v1 = m.scor.filter(s => s === 1).length;
-                        const v2 = m.scor.filter(s => s === 2).length;
-                        html += `<div class="bg-slate-900 p-6 rounded-[2rem] border border-blue-900/30">
-                            <div class="text-[8px] font-black text-slate-500 uppercase mb-4 text-center tracking-[0.3em]">${m.titlu}</div>
-                            <div class="flex justify-between items-center px-4">
-                                <div class="w-2/5 text-right"><div class="text-[11px] font-black uppercase italic ${v1 > v2 ? 'text-green-400' : 'text-white'}">${m.p1}</div></div>
-                                <div class="flex flex-col items-center mx-4">
-                                    <div class="text-3xl font-black italic text-blue-500">${v1} - ${v2}</div>
+                        const t1 = m.tur.filter(s => s === 1).length, t2 = m.tur.filter(s => s === 2).length;
+                        const r1 = m.retur.filter(s => s === 1).length, r2 = m.retur.filter(s => s === 2).length;
+                        
+                        html += `<div class="bg-slate-900 p-6 rounded-[2.5rem] border border-blue-900/30">
+                            <div class="text-[8px] font-black text-slate-500 uppercase mb-6 text-center tracking-[0.3em]">${m.titlu}</div>
+                            
+                            <div class="flex justify-between items-center mb-8">
+                                <div class="w-1/3 text-center uppercase italic font-black text-[10px] text-blue-400 leading-tight">${m.p1}</div>
+                                <div class="text-center">
+                                    <div class="text-xs text-slate-500 font-bold uppercase mb-1">Total</div>
+                                    <div class="text-4xl font-black italic text-white">${t1 + r1} - ${t2 + r2}</div>
                                 </div>
-                                <div class="w-2/5 text-left"><div class="text-[11px] font-black uppercase italic ${v2 > v1 ? 'text-green-400' : 'text-white'}">${m.p2}</div></div>
+                                <div class="w-1/3 text-center uppercase italic font-black text-[10px] text-blue-400 leading-tight">${m.p2}</div>
                             </div>
-                            <div class="flex justify-center gap-2 mt-6">
-                                ${m.scor.map((s, idx) => `
-                                    <button onclick="updateSemi('${m.id}', ${idx})" class="w-10 h-10 rounded-xl border ${s === 0 ? 'border-slate-800 text-slate-600' : s === 1 ? 'border-blue-500 bg-blue-500/20 text-blue-400' : 'border-green-500 bg-green-500/20 text-green-400'} text-[10px] font-black ${!isAdmin() ? 'pointer-events-none' : ''}">
-                                        ${s === 0 ? idx + 1 : s === 1 ? 'P1' : 'P2'}
-                                    </button>
-                                `).join('')}
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-black/40 p-4 rounded-2xl border border-white/5">
+                                    <div class="text-[9px] font-bold text-center text-slate-500 uppercase mb-3">Tur: ${t1}-${t2}</div>
+                                    <div class="flex justify-center gap-1">
+                                        ${m.tur.map((s, idx) => `
+                                            <button onclick="updateSemi('${m.id}', 'tur', ${idx})" class="w-7 h-7 rounded-lg border ${s === 0 ? 'border-slate-800 text-slate-700' : s === 1 ? 'bg-blue-600 border-blue-600 text-white' : 'bg-green-600 border-green-600 text-white'} text-[9px] font-black ${!isAdmin() ? 'pointer-events-none' : ''}">
+                                                ${s === 0 ? idx + 1 : s === 1 ? '1' : '2'}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                <div class="bg-black/40 p-4 rounded-2xl border border-white/5">
+                                    <div class="text-[9px] font-bold text-center text-slate-500 uppercase mb-3">Retur: ${r1}-${r2}</div>
+                                    <div class="flex justify-center gap-1">
+                                        ${m.retur.map((s, idx) => `
+                                            <button onclick="updateSemi('${m.id}', 'retur', ${idx})" class="w-7 h-7 rounded-lg border ${s === 0 ? 'border-slate-800 text-slate-700' : s === 1 ? 'bg-blue-600 border-blue-600 text-white' : 'bg-green-600 border-green-600 text-white'} text-[9px] font-black ${!isAdmin() ? 'pointer-events-none' : ''}">
+                                                ${s === 0 ? idx + 1 : s === 1 ? '1' : '2'}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
                             </div>
                         </div>`;
                     });
@@ -184,8 +202,6 @@
                 if (currentSezonData?.f1) {
                     html += `<div class="mt-12 text-center"><h3 class="text-[10px] font-black uppercase text-slate-500 mb-4 tracking-widest">Configurație Echipe</h3>
                              <div class="bg-slate-900 p-2 rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden"><img src="https://i.ibb.co/q3mRnYqD/teams.png" class="w-full h-auto rounded-[2rem] opacity-90 block"></div></div>`;
-                } else {
-                    html += `<div class="text-center text-slate-500 py-10 uppercase font-black text-[10px] tracking-widest">Turneul va începe curând...</div>`;
                 }
             } else if (state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
@@ -203,9 +219,7 @@
                 g.participanti.forEach(j => {
                     html += `<div class="mb-8"><div class="text-[10px] font-black uppercase mb-4 text-slate-400 tracking-tighter border-l-2 border-blue-500 pl-2">${j}</div>`;
                     g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
-                        const adv = m.p1 === j ? m.p2 : m.p1;
-                        const sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`;
-                        const sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
+                        const adv = m.p1 === j ? m.p2 : m.p1, sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`, sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
                         html += `<div class="bg-slate-900/40 p-4 rounded-2xl border border-white/5 flex justify-between items-center mb-2">
                             <div class="text-[9px] font-bold uppercase italic text-slate-500 w-1/2">vs ${adv}</div>
                             <div class="flex gap-2">
