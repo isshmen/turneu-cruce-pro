@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Joker</title>
+    <title>Joker #3 - 1vs1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -24,19 +24,16 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
+        const SEZON_ID = "JOKER_3";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
-        let userLogat = null, currentSezonData = null, dateJucatori = {}, primaIncarcare = true;
+        let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
         window.loginAdmin = async () => {
-            const metoda = confirm("OK pentru Google / Cancel pentru Email");
-            if (metoda) { signInWithPopup(auth, provider); } 
-            else {
-                const email = prompt("Email:", "admin@admin.ro"), pass = prompt("Parola:");
-                if (email && pass) { try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Eroare!"); } }
-            }
+            const email = prompt("Email:", "admin@admin.ro"), pass = prompt("Parola:");
+            if (email && pass) { try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Eroare!"); } }
         };
 
         window.logout = () => signOut(auth);
@@ -49,6 +46,29 @@
                 ${hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`}
                 <span class="${textSize} uppercase italic font-medium truncate">${nume}</span>
             </div>`;
+        };
+
+        window.initSezon3 = async () => {
+            if (!isAdmin()) return;
+            const jucatori = ["Adi Gabriel","Adi Ignat","Ancuta Ilies","Adrian Mutgu","Andrey Mato","Bobby Tiberiu","Botos Marius","Ionas Clara","Catrinet Ionut","Coman Iuliu","Cami Alessia","Cristian Patrut","Dan Marius","Carina Florina L","Florian Lile","Florin Grinsca","Mariana Balaj","Gerard Miodrag","Ion Radan","Ghiata Nicoleta","Ionel Muntean","Ionut Raul","Ioana Cioanca","Jackson Jackson","Iosif Ghimboasa","Ioana Cristina","Jozsef Zsolt","Michael Topan","Julia Kornidesz","Mihai Lungu","Mariana Mois","Ovidiu Miclaus","Siegfried Schuster","Livia Holdis","Vlad Gavrilas","Vlad Tino","Roxana Valentina N."];
+            const shuffled = jucatori.sort(() => 0.5 - Math.random());
+            const litere = ["A","B","C","D","E","F","G","H"];
+            let f1 = {};
+            
+            litere.forEach((L, idx) => {
+                const size = idx < 5 ? 5 : 4; 
+                const part = shuffled.splice(0, size);
+                let meciuri = [];
+                for(let i=0; i<part.length; i++) {
+                    for(let j=i+1; j<part.length; j++) {
+                        meciuri.push({ id: `m3_${L}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                    }
+                }
+                f1[L] = { participanti: part, meciuri: meciuri };
+            });
+
+            await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
+            alert("Sezonul 3 inițializat cu 8 Grupe!");
         };
 
         const calculeazaClasament = (g) => {
@@ -64,78 +84,31 @@
             return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
         };
 
-        window.genereazaFaza2 = async () => {
-            if(!isAdmin()) return;
-            if(!confirm("Vrei să generezi Faza 2 folosind rezultatele actuale din cele 8 grupe?")) return;
-
-            const f1 = currentSezonData.f1;
-            const getP = (grName, pos) => {
-                const c = calculeazaClasament(f1[grName]);
-                return c[pos-1] ? c[pos-1].nume : `Loc ${pos} ${grName}`;
-            };
-
-            const scheme = {
-                "A": [getP("A", 1), getP("B", 2), getP("C", 1), getP("D", 2)],
-                "B": [getP("A", 2), getP("B", 1), getP("C", 2), getP("D", 1)],
-                "C": [getP("E", 1), getP("F", 2), getP("G", 1), getP("H", 2)],
-                "D": [getP("E", 2), getP("F", 1), getP("G", 2), getP("H", 1)]
-            };
-
-            let noulF2 = {};
-            Object.keys(scheme).forEach(gn => {
-                const part = scheme[gn];
-                let meciuri = [];
-                let mid = 1;
-                for(let i=0; i<part.length; i++){
-                    for(let j=i+1; j<part.length; j++){
-                        meciuri.push({ id: `f2_${gn}_${mid++}`, p1: part[i], p2: part[j], s1t:0, s2t:0, s1r:0, s2r:0, gata: false });
-                    }
-                }
-                noulF2[gn] = { participanti: part, meciuri: meciuri };
-            });
-
-            await updateDoc(doc(db, "sezoane", "JOKER_2"), { f2: noulF2 });
-            alert("Faza 2 a fost generată!");
-        };
-
         window.updateScorMeci = async (mId, set, p1, p2, tit) => {
             if(!isAdmin()) return;
-            const val = prompt(`Scor (ex: 2-0):`);
+            const val = prompt(`Scor (ex: 3-2):`);
             if(!val) return;
             let [v1, v2] = val.split("-").map(Number);
             let data = {...currentSezonData}, meci = data[state.faza][state.idGrupa].meciuri.find(m => m.id === mId);
             if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
-            meci.lastUpdate = Date.now();
-            await setDoc(doc(db, "sezoane", "JOKER_2"), data);
+            await setDoc(doc(db, "sezoane", SEZON_ID), data);
         };
 
         async function render() {
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#2</span></h1>
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#3</span></h1>
                     <div class="flex gap-4">
-                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-blue-600 px-2 py-1 rounded font-bold uppercase">Generează Faza 2</button>` : ''}
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon3()" class="text-[9px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Start Sezon 3</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if(state.pagina === "home") {
-                html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>
-                         <div onclick="nav('podium')" class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 p-6 rounded-3xl mb-10 cursor-pointer text-xs font-black uppercase tracking-widest text-blue-400 flex justify-between">
-                            <span>Câștigător Ediția #1</span><span>🏆</span>
-                         </div>`;
-
-                if(currentSezonData?.f2) {
-                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-blue-500">Faza 2</h2><div class="grid grid-cols-2 gap-4 mb-10">`;
-                    Object.keys(currentSezonData.f2).sort().forEach(gk => {
-                        html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center cursor-pointer hover:border-blue-500 transition-all text-4xl font-black italic">${gk}</div>`;
-                    });
-                    html += `</div>`;
-                }
-
+                html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>`;
                 if(currentSezonData?.f1) {
                     html += `<h2 class="text-xl font-black italic uppercase mb-4 text-slate-500">Faza Grupelor</h2><div class="grid grid-cols-4 gap-2 mb-10">`;
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
@@ -143,21 +116,13 @@
                     });
                     html += `</div>`;
                 }
-            } else if(state.pagina === "podium") {
-                html += `<button onclick="nav('home')" class="mb-8 text-xs font-bold uppercase text-blue-500">← Înapoi</button>
-                         <div class="space-y-4">
-                            <div class="bg-gradient-to-r from-yellow-500/20 to-slate-900 border border-yellow-500/40 p-8 rounded-[2rem] flex justify-between items-center">
-                                <div><span class="block text-[10px] font-black uppercase text-yellow-500">Locul 1</span><span class="text-2xl font-black italic uppercase">Ovidiu Miclaus</span></div>
-                                <div class="text-4xl">🏆</div>
-                            </div>
-                         </div>`;
             } else if(state.pagina === "grupa") {
-                const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g), top2 = c.slice(0, 2).map(x => x.nume);
+                const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold text-blue-500 uppercase">← Înapoi</button>
-                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} (${state.faza.toUpperCase()})</div>
+                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa}</div>
                          <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase"><th class="text-left pb-2 pl-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
-                            ${c.map(x => `<tr class="border-t border-white/5 ${top2.includes(x.nume) ? 'text-green-500' : ''}">
+                            ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'text-green-500' : ''}">
                                 <td class="py-3 pl-2">${drawUser(x.nume)}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-center">${x.p}</td>
                             </tr>`).join('')}</table></div>`;
                 g.participanti.forEach(j => {
@@ -178,7 +143,7 @@
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
-        onSnapshot(doc(db, "sezoane", "JOKER_2"), s => { if(s.exists()) { currentSezonData = s.data(); render(); } });
+        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render(); } });
         onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
     </script>
 </head>
