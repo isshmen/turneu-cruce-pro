@@ -110,15 +110,27 @@
             if(state.pagina === "home") {
                 html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>`;
 if(currentSezonData?.f1) {
-    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-slate-500">Faza Grupelor</h2><div class="grid grid-cols-4 gap-2 mb-10">`;
+    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-slate-500">Faza Grupelor</h2>
+             <div class="grid grid-cols-4 gap-2 mb-10">`;
+    
     Object.keys(currentSezonData.f1).sort().forEach(gk => {
-        // Aceasta este logica de filtrare:
         const inSearch = currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search));
         if(state.search === "" || inSearch) {
             html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/40 p-4 rounded-xl border border-white/5 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic transition-all">${gk}</div>`;
         }
     });
-    html += `</div>`;
+
+    html += `</div>`; // Închidem grid-ul grupelor
+
+    // --- ADAUGARE IMAGINE SUB GRUPE ---
+    html += `
+        <div class="mt-8 mb-10">
+            <img src="https://i.ibb.co/k6wMhgkZ/grupe.png" 
+                 alt="Tablou Grupe" 
+                 class="w-full h-auto rounded-3xl border border-white/5 shadow-2xl opacity-90">
+        </div>
+    `;
+    // ---------------------------------
 }
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
@@ -153,4 +165,5 @@ if(currentSezonData?.f1) {
 </head>
 <body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
 </html>
+
 
