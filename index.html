@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Joker #4</title>
+    <title>Turney Cruce Joker #4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -39,10 +39,11 @@
         window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]") => {
+        const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", reverse = false) => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
-            return `<div class="flex items-center gap-2">
-                ${hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`}
+            const imgHtml = hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`;
+            return `<div class="flex items-center gap-2 ${reverse ? 'flex-row-reverse text-right' : ''}">
+                ${imgHtml}
                 <span class="${textSize} uppercase italic font-medium truncate">${nume}</span>
             </div>`;
         };
@@ -91,14 +92,12 @@
             if (!isAdmin() || !currentSezonData?.f1) return;
             const f1 = currentSezonData.f1;
             const getLoc = (gId, loc) => calculeazaClasament(f1[gId])[loc - 1]?.nume;
-
             const structuraF2 = {
                 "1": [getLoc("A", 1), getLoc("B", 2), getLoc("C", 1), getLoc("D", 2)],
                 "2": [getLoc("A", 2), getLoc("B", 1), getLoc("C", 2), getLoc("D", 1)],
                 "3": [getLoc("E", 1), getLoc("F", 2), getLoc("G", 1), getLoc("H", 2)],
                 "4": [getLoc("E", 2), getLoc("F", 1), getLoc("G", 2), getLoc("H", 1)]
             };
-
             let f2 = {};
             Object.keys(structuraF2).forEach(gk => {
                 const part = structuraF2[gk].filter(p => p !== undefined);
@@ -110,17 +109,37 @@
                 }
                 f2[gk] = { participanti: part, meciuri: meciuri };
             });
-
             await updateDoc(doc(db, "sezoane", SEZON_ID), { f2 });
             alert("Preliminariile au fost generate!");
         };
 
-        window.updateScorMeci = async (mId, set, p1, p2, tit) => {
+        window.genereazaSemifinale = async () => {
+            if (!isAdmin()) return;
+            const sf = [
+                { id: "sf1", p1: "Mihai Lungu", p2: "Bobby Tiberiu", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
+                { id: "sf2", p1: "Coman Iuliu Daniel", p2: "Dan Marius", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
+                { id: "sf3", p1: "Ovi Miclaus", p2: "Cristian Pătruț", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
+                { id: "sf4", p1: "Gerard Miodrag", p2: "Ioana Cioanca", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false }
+            ];
+            await updateDoc(doc(db, "sezoane", SEZON_ID), { sf });
+            alert("Semifinalele au fost generate!");
+        };
+
+        window.updateScorMeci = async (mId, set, p1, p2, tit, fazaSpecifica = null) => {
             if(!isAdmin()) return;
             const val = prompt(`Scor (ex: 3-2):`);
             if(!val) return;
             let [v1, v2] = val.split("-").map(Number);
-            let data = {...currentSezonData}, meci = data[state.faza][state.idGrupa].meciuri.find(m => m.id === mId);
+            let data = {...currentSezonData};
+            let fazaCurenta = fazaSpecifica || state.faza;
+            
+            let meci;
+            if(fazaCurenta === 'sf') {
+                meci = data.sf.find(m => m.id === mId);
+            } else {
+                meci = data[fazaCurenta][state.idGrupa].meciuri.find(m => m.id === mId);
+            }
+
             if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
@@ -132,9 +151,10 @@
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#4</span></h1>
-                    <div class="flex gap-4">
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon4()" class="text-[9px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Start Sezon 4</button>` : ''}
-                        ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="genereazaPreliminarii()" class="text-[9px] bg-blue-600 px-2 py-1 rounded font-bold uppercase italic tracking-tighter">Generează Preliminarii</button>` : ''}
+                    <div class="flex gap-2">
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon4()" class="text-[8px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Start S4</button>` : ''}
+                        ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="genereazaPreliminarii()" class="text-[8px] bg-blue-600 px-2 py-1 rounded font-bold uppercase italic">Gen. Prelim</button>` : ''}
+                        ${isAdmin() && currentSezonData?.f2 && !currentSezonData?.sf ? `<button onclick="genereazaSemifinale()" class="text-[8px] bg-green-600 px-2 py-1 rounded font-bold uppercase italic">Gen. Semifinale</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
@@ -142,7 +162,6 @@
             if(state.pagina === "home") {
                 html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>`;
                 
-                // FAZA 1 - GRUPELE A-H
                 if(currentSezonData?.f1) {
                     html += `<h2 class="text-xl font-black italic uppercase mb-4 text-slate-500">Faza Grupelor</h2>
                              <div class="grid grid-cols-4 gap-2 mb-10">`;
@@ -155,7 +174,6 @@
                     html += `</div>`;
                 }
 
-                // FAZA 2 - PRELIMINARII
                 if(currentSezonData?.f2) {
                     html += `<h2 class="text-xl font-black italic uppercase mb-4 text-blue-500 border-t border-slate-800 pt-8">Preliminarii</h2>
                              <div class="grid grid-cols-4 gap-2 mb-10">`;
@@ -164,6 +182,25 @@
                         if(state.search === "" || inSearch) {
                             html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic transition-all">${gk}</div>`;
                         }
+                    });
+                    html += `</div>`;
+                }
+
+                if(currentSezonData?.sf) {
+                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-green-500 border-t border-slate-800 pt-8">Semifinale</h2>
+                             <div class="flex flex-col gap-3 mb-10">`;
+                    currentSezonData.sf.forEach(m => {
+                        html += `<div class="bg-slate-900/80 p-4 rounded-2xl border border-white/5 flex flex-col gap-4">
+                            <div class="flex justify-between items-center gap-2">
+                                <div class="flex-1">${drawUser(m.p1, "w-10 h-10", "text-[12px] font-bold")}</div>
+                                <div class="text-slate-600 font-black italic text-xs px-2">VS</div>
+                                <div class="flex-1 flex justify-end">${drawUser(m.p2, "w-10 h-10", "text-[12px] font-bold", true)}</div>
+                            </div>
+                            <div class="flex justify-center gap-4 border-t border-white/5 pt-3">
+                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${m.p1}','sf')" class="bg-black px-4 py-2 rounded-lg border border-slate-800 text-[10px] font-black">T: ${m.s1t}-${m.s2t}</button>
+                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${m.p1}','sf')" class="bg-black px-4 py-2 rounded-lg border border-slate-800 text-[10px] font-black">R: ${m.s1r}-${m.s2r}</button>
+                            </div>
+                        </div>`;
                     });
                     html += `</div>`;
                 }
