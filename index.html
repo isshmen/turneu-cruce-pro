@@ -116,10 +116,8 @@
         window.genereazaSemifinale = async () => {
             if (!isAdmin()) return;
             const sf = [
-                { id: "sf1", p1: "Mihai Lungu", p2: "Bobby Tiberiu", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
-                { id: "sf2", p1: "Coman Iuliu Daniel", p2: "Dan Marius", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
-                { id: "sf3", p1: "Ovi Miclaus", p2: "Cristian Pătruț", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
-                { id: "sf4", p1: "Gerard Miodrag", p2: "Ioana Cioanca", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false }
+                { id: "sf1", p1: "Bobby Tiberiu", p2: "Ovi Miclaus", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
+                { id: "sf2", p1: "Coman Iuliu Daniel", p2: "Gerard Miodrag", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false }
             ];
             await updateDoc(doc(db, "sezoane", SEZON_ID), { sf });
             alert("Semifinalele au fost generate!");
@@ -205,11 +203,6 @@
                     html += `</div>`;
                 }
 
-                if(currentSezonData?.f1) {
-                    html += `<div class="mt-8 mb-10">
-                      
-                    </div>`;
-                }
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold text-blue-500 uppercase">← Înapoi</button>
