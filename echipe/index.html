@@ -23,7 +23,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- ID NOU PENTRU EDIȚIA #5 ---
         const SEZON_ID = "JOKER_TEAM_5";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null;
@@ -87,12 +86,10 @@
             if (!val) return;
             const [v1, v2] = val.split("-").map(Number);
             let data = { ...currentSezonData };
-            
             let meci = data[state.faza][state.idGrupa].meciuri.find(m => m.id === mId);
             if (ref === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
-            
             await updateDoc(doc(db, "sezoane", SEZON_ID), data);
         };
 
@@ -102,7 +99,7 @@
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
                     <h1 onclick="nav('home')" class="font-black text-2xl cursor-pointer italic uppercase">Best Teams <span class="text-blue-500">#5</span></h1>
                     <div class="flex gap-2">
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon5Echipe()" class="text-[8px] bg-red-600 px-2 py-1 rounded uppercase font-bold tracking-tighter">Start Sezon 5 (Echipe)</button>` : ''}
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon5Echipe()" class="text-[8px] bg-red-600 px-2 py-1 rounded uppercase font-bold tracking-tighter">Start Sezon 5</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Logout</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
@@ -112,7 +109,7 @@
 
                 if (currentSezonData?.f1) {
                     html += `<h2 class="text-xs font-black uppercase text-slate-500 mb-6 tracking-widest text-center">Faza Grupelor</h2>
-                             <div class="grid grid-cols-2 gap-4">`;
+                             <div class="grid grid-cols-2 gap-4 mb-12">`;
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
                         const matchSearch = currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search));
                         if (state.search === "" || matchSearch) {
@@ -123,6 +120,10 @@
                         }
                     });
                     html += `</div>`;
+                    
+                    html += `<div class="mt-8 mb-10">
+                                <img src="https://i.ibb.co/nMPm1HGt/echipele.jpg" alt="Grupe" class="w-full h-auto rounded-3xl border border-white/5 shadow-2xl opacity-90">
+                             </div>`;
                 }
 
             } else if (state.pagina === "grupa") {
