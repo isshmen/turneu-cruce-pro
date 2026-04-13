@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turney Cruce Joker #4</title>
+    <title>Turneu Cruce Joker #5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -23,7 +23,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_4";
+        const SEZON_ID = "JOKER_5";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
@@ -61,17 +61,17 @@
             return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
         };
 
-        window.initSezon4 = async () => {
+        window.initSezon5 = async () => {
             if (!isAdmin()) return;
             const structura = {
-                "A": ["Cami Alessia", "Catrinet Ionuț", "Ion Radan", "Mihai Lungu"],
-                "B": ["Ancuța Ilieș", "Dan Marius", "Iosif Ghimboasa", "Roxana Nani"],
-                "C": ["Ionel Muntean", "Bobby Tiberiu", "Ghiață Nicoleta", "Mariana Balaj"],
-                "D": ["Adi Ignat", "Coman Iuliu Daniel", "Ionuț Raul", "Siegfried Schuster"],
-                "E": ["Florian Lille", "Andrey Mato", "Ioana Cristina", "Michael Topan"],
-                "F": ["Vlad Gavrilaș", "Cristian Pătruț", "Jacson Jacson", "Ovi Miclăuș"],
-                "G": ["Adrian Murgu", "Carina Florina Luca", "Ioana Cioanca", "Livia Holdiș"],
-                "H": ["Gerard Miodrag", "Jozsef Zsolt", "Mariana Mois", "Vlad Tino"]
+                "A": ["Mariana Mois", "Vasy Ignat", "Ovi Miclaus", "Ioana Cristina"],
+                "B": ["Julia Kornidesz", "Ionel Muntean", "Vlad Gavrilas", "Vlad Tino"],
+                "C": ["Adrian Murgu", "Andrey Mato", "Ionuț Raul", "Ionas Clara"],
+                "D": ["Siegfried Schuster", "Iosif Ghimboasa", "Mariana Balaj", "Jacson Jacson"],
+                "E": ["Vali Dragomir", "Livia Holdiș", "Bobby Tiberiu", "Cami Alessia"],
+                "F": ["Florian Lille", "Ion Radan", "Catrinet Ionuț", "Dan Marius"],
+                "G": ["Ioana Cioanca", "Gerard Miodrag", "Michael Topan", "Ghiață Nicoleta"],
+                "H": ["Coman Iuliu", "Carina Luca", "Mihai Lungu", "Roxana Nani"]
             };
             let f1 = {};
             Object.keys(structura).forEach(L => {
@@ -79,48 +79,13 @@
                 let meciuri = [];
                 for(let i=0; i<part.length; i++) {
                     for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m4_${L}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                        meciuri.push({ id: `m5_${L}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
                     }
                 }
                 f1[L] = { participanti: part, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Sezonul 4 inițializat!");
-        };
-
-        window.genereazaPreliminarii = async () => {
-            if (!isAdmin() || !currentSezonData?.f1) return;
-            const f1 = currentSezonData.f1;
-            const getLoc = (gId, loc) => calculeazaClasament(f1[gId])[loc - 1]?.nume;
-            const structuraF2 = {
-                "1": [getLoc("A", 1), getLoc("B", 2), getLoc("C", 1), getLoc("D", 2)],
-                "2": [getLoc("A", 2), getLoc("B", 1), getLoc("C", 2), getLoc("D", 1)],
-                "3": [getLoc("E", 1), getLoc("F", 2), getLoc("G", 1), getLoc("H", 2)],
-                "4": [getLoc("E", 2), getLoc("F", 1), getLoc("G", 2), getLoc("H", 1)]
-            };
-            let f2 = {};
-            Object.keys(structuraF2).forEach(gk => {
-                const part = structuraF2[gk].filter(p => p !== undefined);
-                let meciuri = [];
-                for(let i=0; i<part.length; i++) {
-                    for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m4_f2_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
-                    }
-                }
-                f2[gk] = { participanti: part, meciuri: meciuri };
-            });
-            await updateDoc(doc(db, "sezoane", SEZON_ID), { f2 });
-            alert("Preliminariile au fost generate!");
-        };
-
-        window.genereazaSemifinale = async () => {
-            if (!isAdmin()) return;
-            const sf = [
-                { id: "sf1", p1: "Bobby Tiberiu", p2: "Ovi Miclaus", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false },
-                { id: "sf2", p1: "Coman Iuliu Daniel", p2: "Gerard Miodrag", s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false }
-            ];
-            await updateDoc(doc(db, "sezoane", SEZON_ID), { sf });
-            alert("Semifinalele au fost generate!");
+            alert("Sezonul 5 (Single) inițializat!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, tit, fazaSpecifica = null) => {
@@ -130,14 +95,7 @@
             let [v1, v2] = val.split("-").map(Number);
             let data = {...currentSezonData};
             let fazaCurenta = fazaSpecifica || state.faza;
-            
-            let meci;
-            if(fazaCurenta === 'sf') {
-                meci = data.sf.find(m => m.id === mId);
-            } else {
-                meci = data[fazaCurenta][state.idGrupa].meciuri.find(m => m.id === mId);
-            }
-
+            let meci = data[fazaCurenta][state.idGrupa].meciuri.find(m => m.id === mId);
             if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
@@ -148,11 +106,9 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#4</span></h1>
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#5</span></h1>
                     <div class="flex gap-2">
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon4()" class="text-[8px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Start S4</button>` : ''}
-                        ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="genereazaPreliminarii()" class="text-[8px] bg-blue-600 px-2 py-1 rounded font-bold uppercase italic">Gen. Prelim</button>` : ''}
-                        ${isAdmin() && currentSezonData?.f2 && !currentSezonData?.sf ? `<button onclick="genereazaSemifinale()" class="text-[8px] bg-green-600 px-2 py-1 rounded font-bold uppercase italic">Gen. Semifinale</button>` : ''}
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon5()" class="text-[8px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Start S5</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
@@ -161,52 +117,30 @@
                 html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>`;
                 
                 if(currentSezonData?.f1) {
-                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-slate-500">Faza Grupelor</h2>
-                             <div class="grid grid-cols-4 gap-2 mb-10">`;
+                    html += `<h2 class="text-xl font-black italic uppercase mb-6 text-slate-500 text-center tracking-widest">Faza Grupelor</h2>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">`;
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
-                        const inSearch = currentSezonData.f1[gk].participanti.some(p => p.toLowerCase().includes(state.search));
+                        const participanti = currentSezonData.f1[gk].participanti;
+                        const inSearch = participanti.some(p => p.toLowerCase().includes(state.search));
+                        
                         if(state.search === "" || inSearch) {
-                            html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/40 p-4 rounded-xl border border-white/5 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic transition-all">${gk}</div>`;
+                            html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/60 p-6 rounded-3xl border border-white/5 cursor-pointer hover:border-blue-500 transition-all shadow-xl group">
+                                <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                                    <span class="text-3xl font-black italic text-blue-500 group-hover:scale-110 transition-transform">Grupa ${gk}</span>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase italic">Detalii →</span>
+                                </div>
+                                <div class="space-y-2">
+                                    ${participanti.map(p => `<div class="opacity-80">${drawUser(p, "w-5 h-5", "text-[10px]")}</div>`).join('')}
+                                </div>
+                            </div>`;
                         }
                     });
                     html += `</div>`;
                 }
-
-                if(currentSezonData?.f2) {
-                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-blue-500 border-t border-slate-800 pt-8">Preliminarii</h2>
-                             <div class="grid grid-cols-4 gap-2 mb-10">`;
-                    Object.keys(currentSezonData.f2).sort().forEach(gk => {
-                        const inSearch = currentSezonData.f2[gk].participanti.some(p => p.toLowerCase().includes(state.search));
-                        if(state.search === "" || inSearch) {
-                            html += `<div onclick="nav('grupa', 'f2', '${gk}')" class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30 text-center cursor-pointer hover:border-blue-500 text-xl font-black italic transition-all">${gk}</div>`;
-                        }
-                    });
-                    html += `</div>`;
-                }
-
-                if(currentSezonData?.sf) {
-                    html += `<h2 class="text-xl font-black italic uppercase mb-4 text-green-500 border-t border-slate-800 pt-8">Semifinale</h2>
-                             <div class="flex flex-col gap-3 mb-10">`;
-                    currentSezonData.sf.forEach(m => {
-                        html += `<div class="bg-slate-900/80 p-4 rounded-2xl border border-white/5 flex flex-col gap-4">
-                            <div class="flex justify-between items-center gap-2">
-                                <div class="flex-1">${drawUser(m.p1, "w-10 h-10", "text-[12px] font-bold")}</div>
-                                <div class="text-slate-600 font-black italic text-xs px-2">VS</div>
-                                <div class="flex-1 flex justify-end">${drawUser(m.p2, "w-10 h-10", "text-[12px] font-bold", true)}</div>
-                            </div>
-                            <div class="flex justify-center gap-4 border-t border-white/5 pt-3">
-                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${m.p1}','sf')" class="bg-black px-4 py-2 rounded-lg border border-slate-800 text-[10px] font-black">T: ${m.s1t}-${m.s2t}</button>
-                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${m.p1}','sf')" class="bg-black px-4 py-2 rounded-lg border border-slate-800 text-[10px] font-black">R: ${m.s1r}-${m.s2r}</button>
-                            </div>
-                        </div>`;
-                    });
-                    html += `</div>`;
-                }
-
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
                 html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold text-blue-500 uppercase">← Înapoi</button>
-                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="text-xs block text-slate-600">${state.faza === 'f1' ? 'Faza Grupelor' : 'Preliminarii'}</span></div>
+                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="text-xs block text-slate-600">Faza Grupelor</span></div>
                          <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase"><th class="text-left pb-2 pl-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
                             ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'text-green-500' : ''}">
