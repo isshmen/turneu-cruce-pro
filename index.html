@@ -39,12 +39,12 @@
         window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", reverse = false) => {
+        const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
-            const imgHtml = hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[8px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`;
-            return `<div class="flex items-center gap-2 ${reverse ? 'flex-row-reverse text-right' : ''}">
+            const imgHtml = hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`;
+            return `<div class="flex items-center gap-3">
                 ${imgHtml}
-                <span class="${textSize} uppercase italic font-medium truncate">${nume}</span>
+                <span class="${textSize} uppercase italic font-black truncate ${colorClass || 'text-white/90'}">${nume}</span>
             </div>`;
         };
 
@@ -106,7 +106,7 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer">Joker <span class="text-blue-500">#5</span></h1>
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#5</span></h1>
                     <div class="flex gap-2">
                         ${isAdmin() && !currentSezonData ? `<button onclick="initSezon5()" class="text-[8px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Start S5</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
@@ -114,23 +114,30 @@
                 </nav>`;
 
             if(state.pagina === "home") {
-                html += `<div class="mb-6"><input type="text" placeholder="Caută jucător..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm focus:border-blue-500 outline-none text-white font-bold"></div>`;
+                html += `<div class="mb-8"><input type="text" placeholder="Caută un campion..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
                 
                 if(currentSezonData?.f1) {
-                    html += `<h2 class="text-xl font-black italic uppercase mb-6 text-slate-500 text-center tracking-widest">Faza Grupelor</h2>
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">`;
+                    html += `<h2 class="text-xs font-black uppercase mb-6 text-slate-600 text-center tracking-[0.3em]">Clasament Grupe</h2>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">`;
                     Object.keys(currentSezonData.f1).sort().forEach(gk => {
-                        const participanti = currentSezonData.f1[gk].participanti;
-                        const inSearch = participanti.some(p => p.toLowerCase().includes(state.search));
+                        const grupaData = currentSezonData.f1[gk];
+                        const clasament = calculeazaClasament(grupaData);
+                        const primiiDoi = clasament.slice(0, 2).map(x => x.nume);
+                        const inSearch = grupaData.participanti.some(p => p.toLowerCase().includes(state.search));
                         
                         if(state.search === "" || inSearch) {
-                            html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/60 p-6 rounded-3xl border border-white/5 cursor-pointer hover:border-blue-500 transition-all shadow-xl group">
-                                <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
-                                    <span class="text-3xl font-black italic text-blue-500 group-hover:scale-110 transition-transform">Grupa ${gk}</span>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase italic">Detalii →</span>
+                            html += `<div onclick="nav('grupa', 'f1', '${gk}')" class="bg-slate-900/80 p-6 rounded-[2.5rem] border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all shadow-2xl group relative overflow-hidden">
+                                <div class="flex justify-between items-end mb-6">
+                                    <span class="text-4xl font-black italic text-white group-hover:text-blue-500 transition-colors">G${gk}</span>
+                                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest pb-1">Vezi meciuri →</span>
                                 </div>
-                                <div class="space-y-2">
-                                    ${participanti.map(p => `<div class="opacity-80">${drawUser(p, "w-5 h-5", "text-[10px]")}</div>`).join('')}
+                                <div class="space-y-3">
+                                    ${clasament.map((p, idx) => {
+                                        const esteCalificat = idx < 2;
+                                        return `<div class="p-3 rounded-2xl transition-all ${esteCalificat ? 'bg-green-500/10 border border-green-500/20' : 'bg-black/20 border border-transparent'}">
+                                            ${drawUser(p.nume, "w-8 h-8", "text-[12px]", esteCalificat ? "text-green-400" : "")}
+                                        </div>`;
+                                    }).join('')}
                                 </div>
                             </div>`;
                         }
@@ -139,28 +146,29 @@
                 }
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
-                html += `<button onclick="nav('home')" class="mb-4 text-xs font-bold text-blue-500 uppercase">← Înapoi</button>
-                         <div class="text-3xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="text-xs block text-slate-600">Faza Grupelor</span></div>
-                         <div class="bg-slate-900 p-4 rounded-3xl mb-10 border border-slate-800 overflow-hidden"><table class="w-full text-xs font-bold">
-                            <tr class="text-slate-500 uppercase"><th class="text-left pb-2 pl-2">Jucător</th><th>V</th><th>C</th><th>P</th></tr>
-                            ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'text-green-500' : ''}">
-                                <td class="py-3 pl-2">${drawUser(x.nume)}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-center">${x.p}</td>
+                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Înapoi la index</button>
+                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa}</div>
+                         <div class="bg-slate-900 p-6 rounded-[2.5rem] mb-10 border border-slate-800 shadow-2xl overflow-hidden"><table class="w-full text-xs font-bold">
+                            <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Jucător</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
+                            ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5 text-green-400' : ''}">
+                                <td class="py-4 pl-2">${drawUser(x.nume, "w-7 h-7", "text-[11px]")}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-right pr-2">${x.p}</td>
                             </tr>`).join('')}</table></div>`;
+                
                 g.participanti.forEach(j => {
-                    html += `<div class="mb-10"><div class="flex items-center gap-4 mb-5 ml-1 p-2 border-l-4 border-blue-500 bg-slate-900/30 rounded-r-xl">${drawUser(j, "w-14 h-14", "text-xl font-black")}</div>`;
+                    html += `<div class="mb-10"><div class="flex items-center gap-4 mb-5 ml-1 p-3 border-l-4 border-blue-500 bg-slate-900/50 rounded-r-2xl shadow-lg">${drawUser(j, "w-12 h-12", "text-lg font-black")}</div>`;
                     g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
                         const adv = m.p1 === j ? m.p2 : m.p1, sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`, sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
-                        html += `<div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-3 flex justify-between items-center">
-                            <div class="flex items-center gap-3">${drawUser(adv, "w-8 h-8", "text-blue-400 font-bold")}</div>
+                        html += `<div class="bg-slate-900/40 p-5 rounded-[1.5rem] border border-white/5 mb-3 flex justify-between items-center hover:bg-slate-900/60 transition-colors">
+                            <div class="flex items-center gap-3">${drawUser(adv, "w-8 h-8", "text-[11px] text-blue-400")}</div>
                             <div class="flex gap-2">
-                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">T: ${sT}</button>
-                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black px-3 py-2 rounded-lg border border-slate-800 text-[10px] font-black uppercase">R: ${sR}</button>
+                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black/60 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all">T: ${sT}</button>
+                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black/60 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all">R: ${sR}</button>
                             </div></div>`;
                     });
                     html += `</div>`;
                 });
             }
-            root.innerHTML = html + `</div><footer class="mt-20 py-10 border-t border-slate-900 text-center"><p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">&copy; 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-500">Vali Dragomir</a></p></footer>`;
+            root.innerHTML = html + `</div><footer class="mt-20 py-10 border-t border-slate-900 text-center"><p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">© 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-600 hover:text-blue-400">Vali Dragomir</a></p></footer>`;
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
@@ -168,5 +176,5 @@
         onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
     </script>
 </head>
-<body class="bg-black font-sans tracking-tight"><div id="app"></div></body>
+<body class="bg-black font-sans tracking-tight selection:bg-blue-500/30"><div id="app"></div></body>
 </html>
