@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Cruce Joker #5</title>
+    <title>Turneu Cruce Joker #6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -23,7 +23,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_5";
+        const SEZON_ID = "JOKER_6_SINGLE";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
@@ -38,6 +38,33 @@
         window.logout = () => signOut(auth);
         window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
+
+        window.initSezon6 = async () => {
+            if(!isAdmin()) return;
+            const structura = {
+                "A": ["Adrian Murgu", "Coman Iuliu", "Mariana Mois", "Ovi Miclaus"],
+                "B": ["Andrey Mato", "Florian Lille", "Livia Holdis", "Iosif Ghimboasa"],
+                "C": ["Dan Marius", "Cami Alessia", "Siegfried Schuster", "Michael Topan"],
+                "D": ["Vali Dragomir", "Mariana Balaj", "Jacson Jacson", "Ionut Raul"],
+                "E": ["Ionas Clara", "Catrinet Ionut", "Ion Radan", "Ioana Cristina"],
+                "F": ["Roxana Nani", "Gerard Miodrag", "Vlad Gavrilas", "Ghiata Nicoleta"],
+                "G": ["Mihai Lungu", "Carina Luca", "Vasy Ignat", "Vass Robert"],
+                "H": ["Bobby Tiberiu", "Vlad Tino", "Iulia Kornidesz", "Ioana Cioanca"]
+            };
+            let f1 = {};
+            Object.keys(structura).forEach(gk => {
+                const part = structura[gk];
+                let meciuri = [];
+                for(let i=0; i<part.length; i++) {
+                    for(let j=i+1; j<part.length; j++) {
+                        meciuri.push({ id: `m6_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                    }
+                }
+                f1[gk] = { participanti: part, meciuri: meciuri };
+            });
+            await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
+            alert("Sezonul 6 a fost inițializat!");
+        };
 
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
@@ -59,36 +86,6 @@
                 });
             });
             return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
-        };
-
-        window.genereazaFaza2 = async () => {
-            if(!isAdmin() || !currentSezonData?.f1) return;
-            if(!confirm("Ești sigur că vrei să generezi Faza a 2-a pe baza clasamentelor actuale?")) return;
-
-            const f1 = currentSezonData.f1;
-            const getPos = (gk, pos) => calculeazaClasament(f1[gk])[pos-1]?.nume || `Loc ${pos} ${gk}`;
-
-            const structuraF2 = {
-                "A": [getPos('A', 1), getPos('B', 2), getPos('C', 1), getPos('D', 2)],
-                "B": [getPos('E', 1), getPos('F', 2), getPos('G', 1), getPos('H', 2)],
-                "C": [getPos('A', 2), getPos('B', 1), getPos('C', 2), getPos('D', 1)],
-                "D": [getPos('E', 2), getPos('F', 1), getPos('G', 2), getPos('H', 1)]
-            };
-
-            let f2 = {};
-            Object.keys(structuraF2).forEach(id => {
-                const part = structuraF2[id];
-                let meciuri = [];
-                for(let i=0; i<part.length; i++) {
-                    for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m5_f2_${id}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
-                    }
-                }
-                f2[id] = { participanti: part, meciuri: meciuri };
-            });
-
-            await setDoc(doc(db, "sezoane", SEZON_ID), { ...currentSezonData, f2 });
-            alert("Faza a 2-a a fost generată!");
         };
 
         window.updateScorMeci = async (mId, set, p1, p2, tit) => {
@@ -138,23 +135,19 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#5</span></h1>
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#6</span></h1>
                     <div class="flex gap-3">
-                        ${isAdmin() ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-blue-600 hover:text-white transition-all">Generează Faza 2</button>` : ''}
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon6()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 6</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if(state.pagina === "home") {
                 html += `<div class="mb-8"><input type="text" placeholder="Caută un campion..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
-                
-                // Secțiunea 1: Faza Grupelor
                 html += drawGridGrupe('f1', 'Faza Grupelor');
-
-                // Secțiunea 2: Faza a 2-a
-                if(currentSezonData?.f2) {
-                    html += drawGridGrupe('f2', 'Faza a 2-a: Grupe Principale');
-                }
+                html += `<div class="mt-12 rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl">
+                            <img src="https://ibb.co/vCGLGLBV" class="w-full h-auto opacity-80" alt="Banner Turneu">
+                         </div>`;
                 
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
