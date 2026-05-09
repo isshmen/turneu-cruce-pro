@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Best Teams #6</title>
+    <title>The Best Teams #7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -23,7 +23,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_TEAM_6";
+        const SEZON_ID = "JOKER_TEAM_7";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null;
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
@@ -39,43 +39,13 @@
         window.nav = (p, g = null, f = "f1") => { state = { ...state, pagina: p, idGrupa: g, faza: f }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        // Funcția nouă pentru a adăuga echipa fără RESET
-        window.addTeamToGroup2 = async () => {
-            if (!isAdmin() || !currentSezonData) return;
-            const nouaEchipa = "Ildi Ildi si Paula Novac";
-            let data = { ...currentSezonData };
-            
-            if (data.f1["2"].participanti.includes(nouaEchipa)) {
-                alert("Echipa este deja în Grupa 2!");
-                return;
-            }
-
-            // 1. Adăugăm echipa în listă
-            const vechiiParticipanti = [...data.f1["2"].participanti];
-            data.f1["2"].participanti.push(nouaEchipa);
-
-            // 2. Generăm doar meciurile noi (Noua echipă vs toți ceilalți)
-            vechiiParticipanti.forEach((p, index) => {
-                data.f1["2"].meciuri.push({
-                    id: `m6_2_new_${Date.now()}_${index}`,
-                    p1: p,
-                    p2: nouaEchipa,
-                    s1t: 0, s2t: 0, s1r: 0, s2r: 0,
-                    gata: false
-                });
-            });
-
-            await setDoc(doc(db, "sezoane", SEZON_ID), data);
-            alert("Echipa Ildi & Paula a fost adăugată în Grupa 2!");
-        };
-
-        window.initSezon6Echipe = async () => {
+        window.initSezon7Echipe = async () => {
             if (!isAdmin()) return;
             const structura = {
-                "1": ["Vali Dragomir si Ancuta Sacota", "Ghiata Nicoleta si Livia Holdis", "Roxana Valentina si Vass Robert", "Ionut Raul si Vasy Ignat"],
-                "2": ["Andrey Mato si Ioana Cioanca", "Andreea Tontea si Ionel Muntean", "Cami Alessia si Vlad Tino", "Coman Iuliu si Brighitta Divine"],
-                "3": ["Gerard Miodrag si Jacson Jacson", "Bobby Tiberiu si Mihai Lungu", "Dan Marius si Adina Lavinia", "Carina Florina si Iosif Ghimboasa"],
-                "4": ["Florica Lile si Ady Cap", "Foghis Elena si Paunita Bran", "Ovidiu Miclaus si Julia Kornidesz", "Andreea Deea si Galbenusa Aurelia"]
+                "1": ["Nico & Dorel", "Andreea & Ionel", "Vali & Ancuta", "Vass & Coman"],
+                "2": ["Andrey & Ioana", "Cami & Tino", "Ady & Lille", "Deea & Aura"],
+                "3": ["Raul & Falco", "Bobby & Mihai", "Jacson & Gerard", "Paunita & Foghis"],
+                "4": ["Ovi & Julia", "Carina & Iosif", "Ildi & Paula", "Dan & Adina"]
             };
             let f1 = {};
             Object.keys(structura).forEach(gk => {
@@ -83,13 +53,13 @@
                 let meciuri = [];
                 for (let i = 0; i < p.length; i++) {
                     for (let j = i + 1; j < p.length; j++) {
-                        meciuri.push({ id: `m6_${gk}_${i}${j}`, p1: p[i], p2: p[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                        meciuri.push({ id: `m7_${gk}_${i}${j}`, p1: p[i], p2: p[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
                     }
                 }
                 f1[gk] = { participanti: p, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Turneul pe Echipe #6 a fost inițializat!");
+            alert("Turneul pe Echipe #7 a fost inițializat!");
         };
 
         const calculeazaClasament = (g) => {
@@ -122,10 +92,9 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-3xl mx-auto p-4 text-white min-h-screen">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-                    <h1 onclick="nav('home')" class="font-black text-2xl cursor-pointer italic uppercase">Best Teams <span class="text-blue-500">#6</span></h1>
+                    <h1 onclick="nav('home')" class="font-black text-2xl cursor-pointer italic uppercase">Best Teams <span class="text-blue-500">#7</span></h1>
                     <div class="flex gap-2 items-center">
-                        ${isAdmin() ? `<button onclick="addTeamToGroup2()" class="text-[8px] bg-blue-600 px-2 py-1 rounded uppercase font-bold">Add Team G2</button>` : ''}
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon6Echipe()" class="text-[8px] bg-red-600 px-2 py-1 rounded uppercase font-bold tracking-tighter">Start Sezon 6</button>` : ''}
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon7Echipe()" class="text-[8px] bg-red-600 px-2 py-1 rounded uppercase font-bold tracking-tighter">Start Sezon 7</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Logout</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
