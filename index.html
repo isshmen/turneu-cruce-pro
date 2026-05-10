@@ -26,7 +26,7 @@
         const SEZON_ID = "JOKER_6_SINGLE";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
-        let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
+        let state = { pagina: "home", idGrupa: null, faza: "f2", search: "" };
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
@@ -36,38 +36,8 @@
         };
 
         window.logout = () => signOut(auth);
-        window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
+        window.nav = (p, f="f2", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
-
-        window.genereazaFaza2 = async () => {
-            if(!isAdmin() || !currentSezonData?.f1) return;
-            if(!confirm("Generezi Faza a 2-a conform clasamentelor actuale?")) return;
-
-            const f1 = currentSezonData.f1;
-            const getP = (gk, pos) => calculeazaClasament(f1[gk])[pos-1]?.nume || `Loc ${pos}${gk}`;
-
-            const structuraF2 = {
-                "A": [getP('A', 1), getP('B', 2), getP('C', 1), getP('D', 2)],
-                "B": [getP('E', 1), getP('F', 2), getP('G', 1), getP('H', 2)],
-                "C": [getP('A', 2), getP('B', 1), getP('C', 2), getP('D', 1)],
-                "D": [getP('E', 2), getP('F', 1), getP('G', 2), getP('H', 1)]
-            };
-
-            let f2 = {};
-            Object.keys(structuraF2).forEach(id => {
-                const part = structuraF2[id];
-                let meciuri = [];
-                for(let i=0; i<part.length; i++) {
-                    for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m6_f2_${id}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
-                    }
-                }
-                f2[id] = { participanti: part, meciuri: meciuri };
-            });
-
-            await updateDoc(doc(db, "sezoane", SEZON_ID), { f2 });
-            alert("Faza a 2-a a fost generată!");
-        };
 
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
@@ -106,7 +76,7 @@
 
         const drawGridGrupe = (fazaKey, titlu) => {
             if(!currentSezonData || !currentSezonData[fazaKey]) return "";
-            let html = `<h2 class="text-xs font-black uppercase mb-6 text-slate-600 text-center tracking-[0.3em] mt-12">${titlu}</h2>
+            let html = `<h2 class="text-xs font-black uppercase mb-6 text-slate-600 text-center tracking-[0.3em] mt-4">${titlu}</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">`;
             Object.keys(currentSezonData[fazaKey]).sort().forEach(gk => {
                 const grupaData = currentSezonData[fazaKey][gk];
@@ -138,22 +108,24 @@
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#6</span></h1>
                     <div class="flex gap-3">
-                        ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="genereazaFaza2()" class="text-[9px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-blue-600 hover:text-white transition-all">Generează Faza 2</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if(state.pagina === "home") {
                 html += `<div class="mb-8"><input type="text" placeholder="Caută un campion..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
-                html += drawGridGrupe('f1', 'Faza Grupelor');
-                if(currentSezonData?.f2) html += drawGridGrupe('f2', 'Faza a 2-a: Grupe Principale');
-                html += `<div class="mt-12 rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl">
-                            <img src="https://i.ibb.co/hxj2j2ML/grupele.png" class="w-full h-auto opacity-80" alt="Banner Turneu">
-                         </div>`;
+                
+                // Afișăm DOAR Faza a 2-a
+                if(currentSezonData?.f2) {
+                    html += drawGridGrupe('f2', 'Faza a 2-a: Grupe Principale');
+                } else {
+                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Așteptare generare faza 2...</div>`;
+                }
+                
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
                 html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Înapoi</button>
-                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500">${state.faza === 'f1' ? 'FAZA GRUPELOR' : 'FAZA A 2-A'}</span></div>
+                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">Faza a 2-a</span></div>
                          <div class="bg-slate-900 p-6 rounded-[2.5rem] mb-10 border border-slate-800 shadow-2xl overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Jucător</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
                             ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5 text-green-400' : ''}">
