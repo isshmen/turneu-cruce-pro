@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Best Teams #7</title>
+    <title>Turneu Cruce Joker #8 - Echipe</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
@@ -23,146 +23,155 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_TEAM_7";
+        const SEZON_ID = "JOKER_8_TEAMS";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
-        let userLogat = null, currentSezonData = null;
+        let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
         window.loginAdmin = async () => {
-            const email = prompt("Email:", "admin@admin.ro"), pass = prompt("Parolă:");
+            const email = prompt("Email:", "admin@admin.ro"), pass = prompt("Parola:");
             if (email && pass) { try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Eroare!"); } }
         };
 
         window.logout = () => signOut(auth);
-        window.nav = (p, g = null, f = "f1") => { state = { ...state, pagina: p, idGrupa: g, faza: f }; render(); };
+        window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        window.initSezon7Echipe = async () => {
-            if (!isAdmin()) return;
+        window.initSezon8Echipe = async () => {
+            if(!isAdmin()) return;
             const structura = {
-                "1": ["Nico & Dorel", "Andreea & Ionel", "Vali & Ancuta", "Vass & Coman"],
-                "2": ["Andrey & Ioana", "Cami & Tino", "Ady & Lille", "Deea & Aura"],
-                "3": ["Raul & Falco", "Bobby & Mihai", "Jacson & Gerard", "Paunita & Foghis"],
-                "4": ["Ovi & Julia", "Carina & Iosif", "Ildi & Paula", "Dan & Adina"]
+                "1": ["NICO&DOREL", "CAMI&TINO", "RAUL&FALCO", "JACSON&GERARD"],
+                "2": ["VALI&ANCUȚA", "OVI&JULIA", "A.ILIEȘ&COMAN", "PĂUNIȚA&FOGHIȘ", "MIHAI&PAULA"],
+                "3": ["ANDREEA&IONEL", "CARINA&IOSIF", "BOBBY&VASS", "AURA&DEEA"],
+                "4": ["ANDREY&IOANA", "ADY&LILLE", "DAN&ADINA", "ROXY&ILDI"]
             };
             let f1 = {};
             Object.keys(structura).forEach(gk => {
-                const p = structura[gk];
+                const part = structura[gk];
                 let meciuri = [];
-                for (let i = 0; i < p.length; i++) {
-                    for (let j = i + 1; j < p.length; j++) {
-                        meciuri.push({ id: `m7_${gk}_${i}${j}`, p1: p[i], p2: p[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                for(let i=0; i<part.length; i++) {
+                    for(let j=i+1; j<part.length; j++) {
+                        meciuri.push({ id: `m8_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
                     }
                 }
-                f1[gk] = { participanti: p, meciuri: meciuri };
+                f1[gk] = { participanti: part, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Turneul pe Echipe #7 a fost inițializat!");
+            alert("Sezonul 8 Echipe a fost inițializat!");
+        };
+
+        const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
+            const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
+            const imgHtml = hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`;
+            return `<div class="flex items-center gap-3">
+                ${imgHtml}
+                <span class="${textSize} uppercase italic font-black truncate ${colorClass || 'text-white/90'}">${nume}</span>
+            </div>`;
         };
 
         const calculeazaClasament = (g) => {
-            if (!g) return [];
+            if(!g) return [];
             let st = {}; g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
             g.meciuri.forEach(m => {
-                if (!m.gata) return;
-                [{ s1: m.s1t, s2: m.s2t }, { s1: m.s1r, s2: m.s2r }].forEach(s => {
-                    if (s.s1 > s.s2) st[m.p1].v++; else if (s.s2 > s.s1) st[m.p2].v++;
+                if(!m.gata) return;
+                [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
+                    if(s.s1 > s.s2) st[m.p1].v++; else if(s.s2 > s.s1) st[m.p2].v++;
                     st[m.p1].c += s.s1; st[m.p1].p += s.s2; st[m.p2].c += s.s2; st[m.p2].p += s.s1;
                 });
             });
-            return Object.values(st).sort((a, b) => b.v - a.v || b.c - a.c || a.p - b.p);
+            return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
         };
 
-        window.updateScor = async (mId, set, p1, p2, ref) => {
-            if (!isAdmin()) return;
-            const val = prompt("Scor (ex: 3-2):");
-            if (!val) return;
-            const [v1, v2] = val.split("-").map(Number);
-            let data = { ...currentSezonData };
+        window.updateScorMeci = async (mId, set, p1, p2, tit) => {
+            if(!isAdmin()) return;
+            const val = prompt(`Scor (ex: 3-2):`);
+            if(!val) return;
+            let [v1, v2] = val.split("-").map(Number);
+            let data = {...currentSezonData};
             let meci = data[state.faza][state.idGrupa].meciuri.find(m => m.id === mId);
-            if (ref === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
+            if (tit === p1) { meci[`s1${set}`] = v1; meci[`s2${set}`] = v2; }
             else { meci[`s1${set}`] = v2; meci[`s2${set}`] = v1; }
             meci.gata = true;
             await setDoc(doc(db, "sezoane", SEZON_ID), data);
         };
 
+        const drawGridGrupe = (fazaKey, titlu) => {
+            if(!currentSezonData || !currentSezonData[fazaKey]) return "";
+            let html = `<h2 class="text-xs font-black uppercase mb-6 text-slate-600 text-center tracking-[0.3em] mt-4">${titlu}</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">`;
+            Object.keys(currentSezonData[fazaKey]).sort().forEach(gk => {
+                const grupaData = currentSezonData[fazaKey][gk];
+                const clasament = calculeazaClasament(grupaData);
+                const inSearch = grupaData.participanti.some(p => p.toLowerCase().includes(state.search));
+                if(state.search === "" || inSearch) {
+                    html += `<div onclick="nav('grupa', '${fazaKey}', '${gk}')" class="bg-slate-900/80 p-6 rounded-[2.5rem] border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all shadow-2xl group relative overflow-hidden">
+                        <div class="flex justify-between items-end mb-6">
+                            <span class="text-2xl font-black italic text-white group-hover:text-blue-500 transition-colors">Grupa ${gk}</span>
+                            <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest pb-1">Detalii →</span>
+                        </div>
+                        <div class="space-y-3">
+                            ${clasament.map((p, idx) => {
+                                const esteCalificat = idx < 2;
+                                return `<div class="p-3 rounded-2xl transition-all ${esteCalificat ? 'bg-green-500/10 border border-green-500/20' : 'bg-black/20 border border-transparent'}">
+                                    ${drawUser(p.nume, "w-8 h-8", "text-[12px]", esteCalificat ? "text-green-400" : "")}
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+                }
+            });
+            return html + `</div>`;
+        };
+
         async function render() {
             const root = document.getElementById('app');
-            let html = `<div class="max-w-3xl mx-auto p-4 text-white min-h-screen">
-                <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-                    <h1 onclick="nav('home')" class="font-black text-2xl cursor-pointer italic uppercase">Best Teams <span class="text-blue-500">#7</span></h1>
-                    <div class="flex gap-2 items-center">
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon7Echipe()" class="text-[8px] bg-red-600 px-2 py-1 rounded uppercase font-bold tracking-tighter">Start Sezon 7</button>` : ''}
-                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Logout</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
+            let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
+                <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker Echipe <span class="text-blue-500">#8</span></h1>
+                    <div class="flex gap-3">
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon8Echipe()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 8</button>` : ''}
+                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
-            if (state.pagina === "home") {
-                html += `<div class="mb-8"><input type="text" oninput="handleSearch(this.value)" placeholder="Caută echipă..." class="w-full bg-slate-900 border border-slate-800 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-inner" value="${state.search}"></div>`;
-
-                if (currentSezonData?.f1) {
-                    html += `<h2 class="text-xs font-black uppercase text-slate-600 mb-6 tracking-[0.3em] text-center">Faza Grupelor</h2>
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">`;
-                    Object.keys(currentSezonData.f1).sort().forEach(gk => {
-                        const grupaData = currentSezonData.f1[gk];
-                        const clasament = calculeazaClasament(grupaData);
-                        const matchSearch = grupaData.participanti.some(p => p.toLowerCase().includes(state.search));
-                        
-                        if (state.search === "" || matchSearch) {
-                            html += `<div onclick="nav('grupa', '${gk}')" class="bg-slate-900/80 p-8 rounded-[2.5rem] border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all shadow-2xl group">
-                                <div class="flex justify-between items-center mb-6">
-                                    <div class="text-4xl font-black italic group-hover:text-blue-500 transition-colors">Grupa ${gk}</div>
-                                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Detalii →</span>
-                                </div>
-                                <div class="space-y-3">
-                                    ${clasament.map((p, idx) => `
-                                        <div class="p-3 rounded-2xl ${idx < 2 ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-black/20 border border-transparent text-slate-400'} text-[11px] font-black uppercase italic truncate">
-                                            ${p.nume}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>`;
-                        }
-                    });
-                    html += `</div>`;
+            if(state.pagina === "home") {
+                html += `<div class="mb-8"><input type="text" placeholder="Caută o echipă..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
+                if(currentSezonData?.f1) {
+                    html += drawGridGrupe('f1', 'Faza Grupelor');
+                } else {
+                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 8 nu este inițializat.</div>`;
                 }
-            } else if (state.pagina === "grupa") {
+            } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
-                html += `<button onclick="nav('home')" class="mb-6 text-[10px] font-black uppercase text-blue-500 tracking-widest">← Înapoi la index</button>
-                         <h2 class="text-4xl font-black mb-10 text-center italic uppercase text-blue-500">Grupa ${state.idGrupa}</h2>
-                         <div class="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 mb-10 overflow-hidden shadow-2xl">
-                            <table class="w-full text-xs font-bold">
-                                <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 px-2">Echipă</th><th class="text-center pb-4">V</th><th class="text-center pb-4">P+</th><th class="text-right pb-4 px-2">P-</th></tr>
-                                ${c.map((x, i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5' : ''}">
-                                    <td class="py-5 uppercase italic ${i < 2 ? 'text-green-400' : 'text-blue-400'} px-2">${x.nume}</td>
-                                    <td class="text-center text-white font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-right text-slate-500 px-2">${x.p}</td>
-                                </tr>`).join('')}
-                            </table>
-                         </div>`;
-                
+                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Înapoi</button>
+                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">Faza Grupelor</span></div>
+                         <div class="bg-slate-900 p-6 rounded-[2.5rem] mb-10 border border-slate-800 shadow-2xl overflow-hidden"><table class="w-full text-xs font-bold">
+                            <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Echipă</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
+                            ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5 text-green-400' : ''}">
+                                <td class="py-4 pl-2">${drawUser(x.nume, "w-7 h-7", "text-[11px]")}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-right pr-2">${x.p}</td>
+                            </tr>`).join('')}</table></div>`;
                 g.participanti.forEach(j => {
-                    html += `<div class="mb-10"><div class="text-sm font-black uppercase mb-5 text-white border-l-4 border-blue-500 pl-4 bg-slate-900/50 py-3 rounded-r-xl shadow-lg">${j}</div>`;
+                    html += `<div class="mb-10"><div class="flex items-center gap-4 mb-5 ml-1 p-3 border-l-4 border-blue-500 bg-slate-900/30 rounded-r-2xl shadow-lg">${drawUser(j, "w-12 h-12", "text-lg font-black")}</div>`;
                     g.meciuri.filter(m => m.p1 === j || m.p2 === j).forEach(m => {
                         const adv = m.p1 === j ? m.p2 : m.p1, sT = m.p1 === j ? `${m.s1t}-${m.s2t}` : `${m.s2t}-${m.s1t}`, sR = m.p1 === j ? `${m.s1r}-${m.s2r}` : `${m.s2r}-${m.s1r}`;
-                        html += `<div class="bg-slate-900/40 p-5 rounded-2xl border border-white/5 flex justify-between items-center mb-3 hover:bg-slate-900/60 transition-colors">
-                            <div class="text-[10px] font-bold uppercase italic text-blue-400 w-1/2">vs ${adv}</div>
+                        html += `<div class="bg-slate-900/40 p-5 rounded-[1.5rem] border border-white/5 mb-3 flex justify-between items-center hover:bg-slate-900/60 transition-colors">
+                            <div class="flex items-center gap-3">${drawUser(adv, "w-8 h-8", "text-[11px] text-blue-400")}</div>
                             <div class="flex gap-2">
-                                <button onclick="updateScor('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black/60 border border-slate-800 px-4 py-2 rounded-xl text-[10px] font-black hover:border-blue-500 transition-all">T: ${sT}</button>
-                                <button onclick="updateScor('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black/60 border border-slate-800 px-4 py-2 rounded-xl text-[10px] font-black hover:border-blue-500 transition-all">R: ${sR}</button>
-                            </div>
-                        </div>`;
+                                <button onclick="updateScorMeci('${m.id}','t','${m.p1}','${m.p2}','${j}')" class="bg-black/60 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all">T: ${sT}</button>
+                                <button onclick="updateScorMeci('${m.id}','r','${m.p1}','${m.p2}','${j}')" class="bg-black/60 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all">R: ${sR}</button>
+                            </div></div>`;
                     });
                     html += `</div>`;
                 });
             }
-            html += `<footer class="mt-20 border-t border-slate-900 pt-10 text-center pb-12"><a href="https://www.facebook.com/isshmenn" target="_blank" class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700 hover:text-blue-500 transition-colors">© 2026. Creat de Vali Dragomir</a></footer>`;
-            root.innerHTML = html + `</div>`;
+            root.innerHTML = html + `</div><footer class="mt-20 py-10 border-t border-slate-900 text-center"><p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">© 2026. Creat de <a href="https://www.facebook.com/isshmenn" target="_blank" class="text-blue-600 hover:text-blue-400">Vali Dragomir</a></p></footer>`;
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
-        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if (s.exists()) { currentSezonData = s.data(); render(); } });
+        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render(); } else { currentSezonData = null; render(); } });
+        onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
     </script>
 </head>
 <body class="bg-black font-sans tracking-tight selection:bg-blue-500/30"><div id="app"></div></body>
