@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Cruce Joker #6</title>
+    <title>Turneu Cruce Joker #7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -23,10 +23,10 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_6_SINGLE";
+        const SEZON_ID = "JOKER_7_SINGLE";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
-        let state = { pagina: "home", idGrupa: null, faza: "f2", search: "" };
+        let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
 
         const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
 
@@ -36,8 +36,35 @@
         };
 
         window.logout = () => signOut(auth);
-        window.nav = (p, f="f2", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
+        window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
+
+        window.initSezon7Single = async () => {
+            if(!isAdmin()) return;
+            const structura = {
+                "A": ["Catrinet Ionut", "Florian Lille", "Ghiata Nicoleta", "Andrey Mato"],
+                "B": ["Cami Alessia", "Mariana Balaj", "Vali Dragomir", "Vass Robert"],
+                "C": ["Gerard Miodrag", "Ionas Clara", "Mihai Lungu", "Mariana Mois"],
+                "D": ["Vlad Gavrilas", "Coman Iuliu D", "Michael Topan", "Dan Marius"],
+                "E": ["Ovi Miclaus", "Livia Holdis", "Carina Florina L", "Ioana Cioanca"],
+                "F": ["Siegfried Schuster", "Adrian Murgu", "Ionut Raul", "Ionut Muntean"],
+                "G": ["Vlad Tino", "Roxana Valentian", "Bobby Tiberiu", "Ion Radan"],
+                "H": ["Jacson Jacson", "Ioana Cristina", "Iosif Ghimboasa", "Julia Kornidesz"]
+            };
+            let f1 = {};
+            Object.keys(structura).forEach(gk => {
+                const part = structura[gk];
+                let meciuri = [];
+                for(let i=0; i<part.length; i++) {
+                    for(let j=i+1; j<part.length; j++) {
+                        meciuri.push({ id: `m7_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                    }
+                }
+                f1[gk] = { participanti: part, meciuri: meciuri };
+            });
+            await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
+            alert("Sezonul 7 Single a fost initializat!");
+        };
 
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
@@ -106,28 +133,28 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#6</span></h1>
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#7</span></h1>
                     <div class="flex gap-3">
-                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
+                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon7Single()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 7</button>` : ''}
+                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Iesire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if(state.pagina === "home") {
-                html += `<div class="mb-8"><input type="text" placeholder="Caută un campion..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
+                html += `<div class="mb-8"><input type="text" placeholder="Cauta un campion..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
                 
-                // Afișăm DOAR Faza a 2-a
-                if(currentSezonData?.f2) {
-                    html += drawGridGrupe('f2', 'Faza a 2-a: Grupe Principale');
+                if(currentSezonData?.f1) {
+                    html += drawGridGrupe('f1', 'Faza Grupelor');
                 } else {
-                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Așteptare generare faza 2...</div>`;
+                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 7 nu este initializat.</div>`;
                 }
                 
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
-                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Înapoi</button>
-                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">Faza a 2-a</span></div>
+                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Inapoi</button>
+                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">Faza Grupelor</span></div>
                          <div class="bg-slate-900 p-6 rounded-[2.5rem] mb-10 border border-slate-800 shadow-2xl overflow-hidden"><table class="w-full text-xs font-bold">
-                            <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Jucător</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
+                            <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Jucator</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
                             ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5 text-green-400' : ''}">
                                 <td class="py-4 pl-2">${drawUser(x.nume, "w-7 h-7", "text-[11px]")}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-right pr-2">${x.p}</td>
                             </tr>`).join('')}</table></div>`;
@@ -149,7 +176,7 @@
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
-        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render(); } });
+        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render(); } else { currentSezonData = null; render(); } });
         onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
     </script>
 </head>
