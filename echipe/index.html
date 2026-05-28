@@ -23,7 +23,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_8_TEAMS";
+        const SEZON_ID = "JOKER_TEAM_8";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
@@ -43,9 +43,9 @@
             if(!isAdmin()) return;
             const structura = {
                 "1": ["NICO&DOREL", "CAMI&TINO", "RAUL&FALCO", "JACSON&GERARD"],
-                "2": ["VALI&ANCUȚA", "OVI&JULIA", "A.ILIEȘ&COMAN", "PĂUNIȚA&FOGHIȘ", "MIHAI&PAULA"],
-                "3": ["ANDREEA&IONEL", "CARINA&IOSIF", "BOBBY&VASS", "AURA&DEEA"],
-                "4": ["ANDREY&IOANA", "ADY&LILLE", "DAN&ADINA", "ROXY&ILDI"]
+                "2": ["VALI&ANCUTA", "OVI&JULIA", "A.ILIES&COMAN", "PAUNITA&FOGHIS"],
+                "3": ["ANDREEA&IONEL", "I.DOICAR&IOSIF", "BOBBY&VASS", "AURA&DEEA"],
+                "4": ["ANDREY&IOANA", "ADY&LILLE", "DAN&ADINA", "ROXY&MIHAI"]
             };
             let f1 = {};
             Object.keys(structura).forEach(gk => {
@@ -59,7 +59,7 @@
                 f1[gk] = { participanti: part, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Sezonul 8 Echipe a fost inițializat!");
+            alert("Sezonul 8 Echipe a fost initializat!");
         };
 
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
@@ -132,23 +132,23 @@
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker Echipe <span class="text-blue-500">#8</span></h1>
                     <div class="flex gap-3">
                         ${isAdmin() && !currentSezonData ? `<button onclick="initSezon8Echipe()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 8</button>` : ''}
-                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Ieșire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
+                        ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Iesire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
 
             if(state.pagina === "home") {
-                html += `<div class="mb-8"><input type="text" placeholder="Caută o echipă..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
+                html += `<div class="mb-8"><input type="text" placeholder="Cauta o echipa..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
                 if(currentSezonData?.f1) {
                     html += drawGridGrupe('f1', 'Faza Grupelor');
                 } else {
-                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 8 nu este inițializat.</div>`;
+                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 8 nu este initializat.</div>`;
                 }
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
-                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Înapoi</button>
+                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Inapoi</button>
                          <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">Faza Grupelor</span></div>
                          <div class="bg-slate-900 p-6 rounded-[2.5rem] mb-10 border border-slate-800 shadow-2xl overflow-hidden"><table class="w-full text-xs font-bold">
-                            <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Echipă</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
+                            <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Echipa</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
                             ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5 text-green-400' : ''}">
                                 <td class="py-4 pl-2">${drawUser(x.nume, "w-7 h-7", "text-[11px]")}</td><td class="text-center font-black">${x.v}</td><td class="text-center">${x.c}</td><td class="text-right pr-2">${x.p}</td>
                             </tr>`).join('')}</table></div>`;
