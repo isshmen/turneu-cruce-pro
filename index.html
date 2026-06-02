@@ -66,6 +66,45 @@
             alert("Sezonul 7 Single a fost initializat!");
         };
 
+        window.generaFaza2Single = async () => {
+            if(!isAdmin() || !currentSezonData || !currentSezonData.f1) return;
+            if(!confirm("Esti sigur ca vrei sa generezi Faza a 2-a bazat pe clasamentele actuale?")) return;
+
+            let invingatori = {};
+            Object.keys(currentSezonData.f1).forEach(gk => {
+                const cl = calculeazaClasament(currentSezonData.f1[gk]);
+                invingatori[gk] = {
+                    loc1: cl[0] ? cl[0].nume : `Loc 1 ${gk}`,
+                    loc2: cl[1] ? cl[1].nume : `Loc 2 ${gk}`
+                };
+            });
+
+            const structuraF2 = {
+                "A": [invingatori["A"].loc1, invingatori["B"].loc2, invingatori["C"].loc1, invingatori["D"].loc2],
+                "B": [invingatori["B"].loc1, invingatori["A"].loc2, invingatori["D"].loc1, invingatori["C"].loc2],
+                "C": [invingatori["E"].loc1, invingatori["F"].loc2, invingatori["G"].loc1, invingatori["H"].loc2],
+                "D": [invingatori["F"].loc1, invingatori["E"].loc2, invingatori["H"].loc1, invingatori["G"].loc2]
+            };
+
+            let f2 = {};
+            Object.keys(structuraF2).forEach(gk => {
+                const part = structuraF2[gk];
+                let meciuri = [];
+                for(let i=0; i<part.length; i++) {
+                    for(let j=i+1; j<part.length; j++) {
+                        meciuri.push({ id: `m7_f2_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                    }
+                }
+                f2[gk] = { participanti: part, meciuri: meciuri };
+            });
+
+            let dataNoua = { ...currentSezonData, f2 };
+            await setDoc(doc(db, "sezoane", SEZON_ID), dataNoua);
+            state.faza = "f2";
+            render();
+            alert("Faza a 2-a a fost generata cu succes!");
+        };
+
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
             const userData = dateJucatori[nume], hasFoto = userData && userData.poza;
             const imgHtml = hasFoto ? `<img src="${userData.poza}" class="${imgSize} rounded-full object-cover border border-white/10 shadow-sm">` : `<div class="${imgSize} rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase">${nume.charAt(0)}</div>`;
@@ -135,6 +174,7 @@
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
                     <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#7</span></h1>
                     <div class="flex gap-3">
+                        ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="generaFaza2Single()" class="text-[9px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-blue-600 hover:text-white transition-all">Genereaza Faza 2</button>` : ''}
                         ${isAdmin() && !currentSezonData ? `<button onclick="initSezon7Single()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 7</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Iesire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
@@ -143,16 +183,28 @@
             if(state.pagina === "home") {
                 html += `<div class="mb-8"><input type="text" placeholder="Cauta un campion..." value="${state.search}" oninput="handleSearch(this.value)" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-[2rem] text-sm focus:border-blue-500 outline-none text-white font-bold shadow-inner"></div>`;
                 
-                if(currentSezonData?.f1) {
-                    html += drawGridGrupe('f1', 'Faza Grupelor');
+                // Meniu selectare faza daca ambele sunt disponibile
+                if(currentSezonData?.f1 && currentSezonData?.f2) {
+                    html += `<div class="flex justify-center gap-4 mb-6">
+                        <button onclick="state.faza = 'f1'; render();" class="text-[10px] font-black uppercase border px-4 py-2 rounded-full tracking-wider transition-all ${state.faza === 'f1' ? 'bg-blue-500 text-black border-blue-500 shadow-lg shadow-blue-500/20' : 'border-slate-800 text-slate-400 hover:border-slate-700'}">Faza 1 (Grupe)</button>
+                        <button onclick="state.faza = 'f2'; render();" class="text-[10px] font-black uppercase border px-4 py-2 rounded-full tracking-wider transition-all ${state.faza === 'f2' ? 'bg-blue-500 text-black border-blue-500 shadow-lg shadow-blue-500/20' : 'border-slate-800 text-slate-400 hover:border-slate-700'}">Faza 2 (Principale)</button>
+                    </div>`;
+                }
+
+                if(currentSezonData && currentSezonData[state.faza]) {
+                    const titluFaza = state.faza === "f1" ? "Faza 1: Grupe Initiale" : "Faza a 2-a: Grupe Principale";
+                    html += drawGridGrupe(state.faza, titluFaza);
+                } else if (currentSezonData?.f1) {
+                    html += drawGridGrupe('f1', 'Faza 1: Grupe Initiale');
                 } else {
                     html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 7 nu este initializat.</div>`;
                 }
                 
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
-                html += `<button onclick="nav('home')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Inapoi</button>
-                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">Faza Grupelor</span></div>
+                const etichetaFaza = state.faza === "f1" ? "Faza 1" : "Faza a 2-a";
+                html += `<button onclick="nav('home', '${state.faza}')" class="mb-4 text-[10px] font-black text-blue-500 uppercase tracking-widest">← Inapoi</button>
+                         <div class="text-4xl font-black mb-8 uppercase italic text-center text-blue-500">Grupa ${state.idGrupa} <span class="block text-[10px] text-slate-500 italic mt-1 uppercase">${etichetaFaza}</span></div>
                          <div class="bg-slate-900 p-6 rounded-[2.5rem] mb-10 border border-slate-800 shadow-2xl overflow-hidden"><table class="w-full text-xs font-bold">
                             <tr class="text-slate-500 uppercase text-[9px] tracking-widest"><th class="text-left pb-4 pl-2">Jucator</th><th class="pb-4">V</th><th class="pb-4">C</th><th class="pb-4 text-right pr-2">P</th></tr>
                             ${c.map((x,i) => `<tr class="border-t border-white/5 ${i < 2 ? 'bg-green-500/5 text-green-400' : ''}">
