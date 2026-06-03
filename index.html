@@ -43,14 +43,10 @@
         window.initSezon7Single = async () => {
             if(!isAdmin()) return;
             const structura = {
-                "A": ["Catrinet Ionut", "Florian Lille", "Ghiata Nicoleta", "Andrey Mato"],
-                "B": ["Cami Alessia", "Mariana Balaj", "Vali Dragomir", "Vass Robert"],
-                "C": ["Gerard Miodrag", "Ionas Clara", "Mihai Lungu", "Mariana Mois"],
-                "D": ["Vlad Gavrilas", "Coman Iuliu D", "Michael Topan", "Dan Marius"],
-                "E": ["Ovi Miclaus", "Livia Holdis", "Carina Florina L", "Ioana Cioanca"],
-                "F": ["Siegfried Schuster", "Adrian Murgu", "Ionut Raul", "Ionut Muntean"],
-                "G": ["Vlad Tino", "Roxana Valentian", "Bobby Tiberiu", "Ion Radan"],
-                "H": ["Jacson Jacson", "Ioana Cristina", "Iosif Ghimboasa", "Julia Kornidesz"]
+                "A": ["Andrey Mato", "Mariana Balaj", "Mihai Lungu", "Michael Topan"],
+                "B": ["Ovi Miclaus", "Siegfried Schuster", "Vlad Tino", "Iosif Ghimboasa"],
+                "C": ["Catrinet Ionut", "Cami Alessia", "Gerard Miodrag", "Vlad Gavrilas"],
+                "D": ["Ioana Cioanca", "Ionel Muntean", "Roxana Nani", "Jacson Jacson"]
             };
             let f1 = {};
             Object.keys(structura).forEach(gk => {
@@ -64,7 +60,7 @@
                 f1[gk] = { participanti: part, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Sezonul 7 Single a fost initializat!");
+            alert("Sezonul 7 Single a fost initializat cu noile grupe!");
         };
 
         window.generaFaza2Single = async () => {
@@ -82,9 +78,7 @@
 
             const structuraF2 = {
                 "A": [invingatori["A"].loc1, invingatori["B"].loc2, invingatori["C"].loc1, invingatori["D"].loc2],
-                "B": [invingatori["B"].loc1, invingatori["A"].loc2, invingatori["D"].loc1, invingatori["C"].loc2],
-                "C": [invingatori["E"].loc1, invingatori["F"].loc2, invingatori["G"].loc1, invingatori["H"].loc2],
-                "D": [invingatori["F"].loc1, invingatori["E"].loc2, invingatori["H"].loc1, invingatori["G"].loc2]
+                "B": [invingatori["B"].loc1, invingatori["A"].loc2, invingatori["D"].loc1, invingatori["C"].loc2]
             };
 
             let f2 = {};
