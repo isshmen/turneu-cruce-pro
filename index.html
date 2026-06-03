@@ -42,6 +42,7 @@
 
         window.initSezon7Single = async () => {
             if(!isAdmin()) return;
+            if(!confirm("Esti sigur ca vrei sa REINITIALIZEZI Sezonul 7? Toate datele actuale vor fi sterse!")) return;
             const structura = {
                 "A": ["Andrey Mato", "Mariana Balaj", "Mihai Lungu", "Michael Topan"],
                 "B": ["Ovi Miclaus", "Siegfried Schuster", "Vlad Tino", "Iosif Ghimboasa"],
@@ -171,7 +172,7 @@
                     <h1 onclick="schimbaFaza('f1')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#7</span></h1>
                     <div class="flex gap-3">
                         ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="generaFaza2Single()" class="text-[9px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-blue-600 hover:text-white transition-all">Genereaza Faza 2</button>` : ''}
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon7Single()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 7</button>` : ''}
+                        ${isAdmin() ? `<button onclick="initSezon7Single()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 7</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Iesire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
