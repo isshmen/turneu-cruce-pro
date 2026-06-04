@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Cruce Joker #8 - Echipe</title>
+    <title>Turneu Cruce Joker #9 - Echipe</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -23,7 +23,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_TEAM_8";
+        const SEZON_ID = "JOKER_TEAM_9";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
@@ -39,13 +39,14 @@
         window.nav = (p, f="f1", g=null) => { state = { ...state, pagina:p, faza:f, idGrupa:g }; render(); };
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
 
-        window.initSezon8Echipe = async () => {
+        window.initSezon9Echipe = async () => {
             if(!isAdmin()) return;
+            if(!confirm("Esti sigur ca vrei sa INITIALIZEZI Sezonul 9? Toate datele actuale vor fi sterse!")) return;
             const structura = {
-                "1": ["NICO&DOREL", "CAMI&TINO", "RAUL&FALCO", "JACSON&GERARD"],
-                "2": ["VALI&ANCUTA", "OVI&JULIA", "A.ILIES&COMAN", "PAUNITA&FOGHIS"],
-                "3": ["ANDREEA&IONEL", "I.DOICAR&IOSIF", "BOBBY&VASS", "AURA&DEEA"],
-                "4": ["ANDREY&IOANA", "ADY&LILLE", "DAN&ADINA", "ROXY&MIHAI"]
+                "1": ["ADINA&RADAN", "ADY&LILE", "FALCO&RAUL", "NICO&DOREL"],
+                "2": ["AURA&DEEA", "IONEL&ANDREEA", "ANCUTA&VALI", "JULIA&OVI"],
+                "3": ["DAN&IOSIF", "BOBBY&ROXY", "COMAN&ILIES", "ADI&EVY"],
+                "4": ["FOGHIS&PAUNITA", "JACSON&GERARD", "CAMI&TINO", "IOANA&ANDREY"]
             };
             let f1 = {};
             Object.keys(structura).forEach(gk => {
@@ -53,13 +54,13 @@
                 let meciuri = [];
                 for(let i=0; i<part.length; i++) {
                     for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m8_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                        meciuri.push({ id: `m9_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
                     }
                 }
                 f1[gk] = { participanti: part, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Sezonul 8 Echipe a fost initializat!");
+            alert("Sezonul 9 Echipe a fost initializat!");
         };
 
         const drawUser = (nume, imgSize = "w-6 h-6", textSize = "text-[11px]", colorClass = "") => {
@@ -129,9 +130,9 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker Echipe <span class="text-blue-500">#8</span></h1>
+                    <h1 onclick="nav('home')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker Echipe <span class="text-blue-500">#9</span></h1>
                     <div class="flex gap-3">
-                        ${isAdmin() && !currentSezonData ? `<button onclick="initSezon8Echipe()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 8</button>` : ''}
+                        ${isAdmin() ? `<button onclick="initSezon9Echipe()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 9</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Iesire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
@@ -141,7 +142,7 @@
                 if(currentSezonData?.f1) {
                     html += drawGridGrupe('f1', 'Faza Grupelor');
                 } else {
-                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 8 nu este initializat.</div>`;
+                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 9 nu este initializat.</div>`;
                 }
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
