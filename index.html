@@ -43,12 +43,18 @@
         window.initSezon8Single = async () => {
             if(!isAdmin()) return;
             if(!confirm("Esti sigur ca vrei sa INITIALIZEZI Sezonul 8? Toate datele actuale vor fi sterse!")) return;
+            
             const structura = {
-                "A": ["Andrey Mato", "Mariana Balaj", "Mihai Lungu", "Michael Topan"],
-                "B": ["Ovi Miclaus", "Siegfried Schuster", "Vlad Tino", "Iosif Ghimboasa"],
-                "C": ["Catrinet Ionut", "Cami Alessia", "Gerard Miodrag", "Vlad Gavrilas"],
-                "D": ["Ioana Cioanca", "Ionel Muntean", "Roxana Nani", "Jacson Jacson"]
+                "A": ["IONEL MUNTEAN", "ANDREY MATO", "CATRINET IONUȚ", "FLORIAN LILE"],
+                "B": ["GHIAȚĂ NICOLETA", "MICHAEL TOPAN", "MIHAI LUMGU", "VLAD GAVRILAȘ"],
+                "C": ["OVIDIU MICLĂUȘ", "ADI IGNAT", "BOBBY TIBERIU", "DAN MARIUS"],
+                "D": ["ADRIAN MURGU", "CARINA LUCA", "MARIANA BALAJ", "MARIANA MOIS"],
+                "E": ["IONAS CLARA", "GERARD MIODRAG", "IOSIF GHIMBOASA", "COMAN IULIU"],
+                "F": ["ION RADAN", "IOANA CIOANCA", "SIEGFRIED SCHUSTER", "JULIA KORNIDESZ"],
+                "G": ["IOANA CRISTINA", "JACSON JACSON", "LIVIA HOLDIȘ", "VLAD TINO"],
+                "H": ["GUDULEASA DOREL", "IONUȚ RAUL", "VALI DRAGOMIR", "VASS ROBERT"]
             };
+
             let f1 = {};
             Object.keys(structura).forEach(gk => {
                 const part = structura[gk];
@@ -60,9 +66,10 @@
                 }
                 f1[gk] = { participanti: part, meciuri: meciuri };
             });
+
             try {
                 await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-                alert("Sezonul 8 Single a fost initializat cu succes!");
+                alert("Sezonul 8 Single a fost initializat cu cele 8 grupe corecte!");
             } catch(e) {
                 alert("Eroare salvare Firebase!");
             }
@@ -83,7 +90,9 @@
 
             const structuraF2 = {
                 "A": [invingatori["A"].loc1, invingatori["B"].loc2, invingatori["C"].loc1, invingatori["D"].loc2],
-                "B": [invingatori["B"].loc1, invingatori["A"].loc2, invingatori["D"].loc1, invingatori["C"].loc2]
+                "B": [invingatori["B"].loc1, invingatori["A"].loc2, invingatori["D"].loc1, invingatori["C"].loc2],
+                "C": [invingatori["E"].loc1, invingatori["F"].loc2, invingatori["G"].loc1, invingatori["H"].loc2],
+                "D": [invingatori["F"].loc1, invingatori["E"].loc2, invingatori["H"].loc1, invingatori["G"].loc2]
             };
 
             let f2 = {};
