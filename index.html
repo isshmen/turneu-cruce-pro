@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turneu Cruce Joker #7</title>
+    <title>Turneu Cruce Joker #8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -23,7 +23,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const SEZON_ID = "JOKER_7_SINGLE";
+        const SEZON_ID = "JOKER_8_SINGLE";
         const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
         let userLogat = null, currentSezonData = null, dateJucatori = {};
         let state = { pagina: "home", idGrupa: null, faza: "f1", search: "" };
@@ -40,9 +40,9 @@
         window.handleSearch = (val) => { state.search = val.toLowerCase(); render(); };
         window.schimbaFaza = (fazaNoua) => { state.pagina = "home"; state.idGrupa = null; state.faza = fazaNoua; render(); };
 
-        window.initSezon7Single = async () => {
+        window.initSezon8Single = async () => {
             if(!isAdmin()) return;
-            if(!confirm("Esti sigur ca vrei sa REINITIALIZEZI Sezonul 7? Toate datele actuale vor fi sterse!")) return;
+            if(!confirm("Esti sigur ca vrei sa INITIALIZEZI Sezonul 8? Toate datele actuale vor fi sterse!")) return;
             const structura = {
                 "A": ["Andrey Mato", "Mariana Balaj", "Mihai Lungu", "Michael Topan"],
                 "B": ["Ovi Miclaus", "Siegfried Schuster", "Vlad Tino", "Iosif Ghimboasa"],
@@ -55,13 +55,13 @@
                 let meciuri = [];
                 for(let i=0; i<part.length; i++) {
                     for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m7_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                        meciuri.push({ id: `m8_f1_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
                     }
                 }
                 f1[gk] = { participanti: part, meciuri: meciuri };
             });
             await setDoc(doc(db, "sezoane", SEZON_ID), { f1, status: 'activ' });
-            alert("Sezonul 7 Single a fost initializat cu noile grupe!");
+            alert("Sezonul 8 Single a fost initializat cu noile grupe!");
         };
 
         window.generaFaza2Single = async () => {
@@ -88,7 +88,7 @@
                 let meciuri = [];
                 for(let i=0; i<part.length; i++) {
                     for(let j=i+1; j<part.length; j++) {
-                        meciuri.push({ id: `m7_f2_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
+                        meciuri.push({ id: `m8_f2_${gk}_${i}${j}`, p1: part[i], p2: part[j], s1t: 0, s2t: 0, s1r: 0, s2r: 0, gata: false });
                     }
                 }
                 f2[gk] = { participanti: part, meciuri: meciuri };
@@ -169,10 +169,10 @@
             const root = document.getElementById('app');
             let html = `<div class="max-w-2xl mx-auto p-4 text-white min-h-[85vh]">
                 <nav class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                    <h1 onclick="schimbaFaza('f1')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#7</span></h1>
+                    <h1 onclick="schimbaFaza('f1')" class="text-2xl font-black italic uppercase cursor-pointer tracking-tighter">Joker <span class="text-blue-500">#8</span></h1>
                     <div class="flex gap-3">
                         ${isAdmin() && currentSezonData?.f1 && !currentSezonData?.f2 ? `<button onclick="generaFaza2Single()" class="text-[9px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-blue-600 hover:text-white transition-all">Genereaza Faza 2</button>` : ''}
-                        ${isAdmin() ? `<button onclick="initSezon7Single()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 7</button>` : ''}
+                        ${isAdmin() ? `<button onclick="initSezon8Single()" class="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-bold uppercase hover:bg-red-600 hover:text-white transition-all">Init Sezon 8</button>` : ''}
                         ${userLogat ? `<button onclick="logout()" class="text-[10px] text-red-500 font-bold uppercase">Iesire</button>` : `<button onclick="loginAdmin()" class="text-[10px] text-slate-500 font-bold uppercase">Admin</button>`}
                     </div>
                 </nav>`;
@@ -193,7 +193,7 @@
                 } else if (currentSezonData?.f1) {
                     html += drawGridGrupe('f1', 'Faza 1: Grupe Initiale');
                 } else {
-                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 7 nu este initializat.</div>`;
+                    html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 8 nu este initializat.</div>`;
                 }
 
                 html += `<div class="mt-8 flex justify-center"><img src="https://i.ibb.co/Q3GBSnKF/grupe.jpg" class="w-full max-w-md rounded-[2rem] border border-slate-800/60 shadow-2xl opacity-80 hover:opacity-100 transition-opacity"></div>`;
@@ -226,4 +226,9 @@
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
-        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render();
+        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render(); } else { currentSezonData = null; render(); } });
+        onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
+    </script>
+</head>
+<body class="bg-black font-sans tracking-tight selection:bg-blue-500/30"><div id="app"></div></body>
+</html>
