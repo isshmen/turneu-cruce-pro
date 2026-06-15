@@ -195,6 +195,8 @@
                 } else {
                     html += `<div class="text-center py-20 text-slate-500 font-bold italic uppercase tracking-widest text-xs">Sezonul 7 nu este initializat.</div>`;
                 }
+
+                html += `<div class="mt-8 flex justify-center"><img src="https://i.ibb.co/Q3GBSnKF/grupe.jpg" class="w-full max-w-md rounded-[2rem] border border-slate-800/60 shadow-2xl opacity-80 hover:opacity-100 transition-opacity"></div>`;
                 
             } else if(state.pagina === "grupa") {
                 const g = currentSezonData[state.faza][state.idGrupa], c = calculeazaClasament(g);
@@ -224,9 +226,4 @@
         }
 
         onAuthStateChanged(auth, u => { userLogat = u; render(); });
-        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render(); } else { currentSezonData = null; render(); } });
-        onSnapshot(collection(db, "jucatori"), s => { s.forEach(d => dateJucatori[d.id] = d.data()); render(); });
-    </script>
-</head>
-<body class="bg-black font-sans tracking-tight selection:bg-blue-500/30"><div id="app"></div></body>
-</html>
+        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { if(s.exists()) { currentSezonData = s.data(); render();
