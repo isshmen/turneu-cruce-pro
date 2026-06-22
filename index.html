@@ -77,22 +77,13 @@
 
         window.generaFaza2Single = async () => {
             if(!isAdmin() || !currentSezonData || !currentSezonData.f1) return;
-            if(!confirm("Esti sigur ca vrei sa generezi Faza a 2-a bazat pe clasamentele actuale?")) return;
-
-            let invingatori = {};
-            Object.keys(currentSezonData.f1).forEach(gk => {
-                const cl = calculeazaClasament(currentSezonData.f1[gk]);
-                invingatori[gk] = {
-                    loc1: cl[0] ? cl[0].nume : `Loc 1 ${gk}`,
-                    loc2: cl[1] ? cl[1].nume : `Loc 2 ${gk}`
-                };
-            });
+            if(!confirm("Esti sigur ca vrei sa generezi Faza a 2-a bazat pe datele stabilite?")) return;
 
             const structuraF2 = {
-                "A": [invingatori["A"].loc1, invingatori["B"].loc2, invingatori["C"].loc1, invingatori["D"].loc2],
-                "B": [invingatori["B"].loc1, invingatori["A"].loc2, invingatori["D"].loc1, invingatori["C"].loc2],
-                "C": [invingatori["E"].loc1, invingatori["F"].loc2, invingatori["G"].loc1, invingatori["H"].loc2],
-                "D": [invingatori["F"].loc1, invingatori["E"].loc2, invingatori["H"].loc1, invingatori["G"].loc2]
+                "A": ["Ionel Muntean", "Vlad Gavrilas", "Ovidiu Miclaus", "Adrian Murgu"],
+                "B": ["Coman Iuliu", "Ion Radan", "Vlad Tino", "Vass Robert"],
+                "C": ["Andrey Mato", "Mihai Lungu", "Adi Ignat", "Mariana Balaj"],
+                "D": ["Gerard Miodrag", "Siegfried Schuster", "Jacsonn Jacsonn", "Dorel Guduleasa"]
             };
 
             let f2 = {};
