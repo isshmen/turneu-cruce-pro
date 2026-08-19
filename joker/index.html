@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Turneu Cruce</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBG5193qgq-dNX41yhCgXrl9WFNLhUiNnU",
+            authDomain: "turneu-cruce.firebaseapp.com",
+            projectId: "turneu-cruce",
+            storageBucket: "turneu-cruce.firebasestorage.app",
+            messagingSenderId: "169022341825",
+            appId: "1:169022341825:web:53678e9ce275654bfe4a40"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const SEZON_ID = "JOKER_10_SINGLE";
+        const ADMINS = ["isshmen@gmail.com", "admin@admin.ro"];
+        
+        let userLogat = null, currentSezonData = null, listaPlayers = [];
+
+        const isAdmin = () => userLogat && ADMINS.includes(userLogat.email);
+
+        window.login = async () => {
+            const email = document.getElementById("admin-email").value;
+            const pass = document.getElementById("admin-pass").value;
+            try { await signInWithEmailAndPassword(auth, email, pass); } 
+            catch (e) { alert("Eroare la autentificare: " + e.message); }
+        };
+
+        window.logout = () => signOut(auth);
+
+        window.addPlayer = async () => {
+            const numeInput = document.getElementById("p-nume");
+            const pozaInput = document.getElementById("p-poza");
+            const nume = numeInput.value.trim().toUpperCase();
+            const poza = pozaInput.value.trim();
+
+            if (!nume) return alert("Introdu numele jucătorului!");
+
+            try {
+                await addDoc(collection(db, "players"), { nume, poza });
+                numeInput.value = "";
+                pozaInput.value = "";
+            } catch (e) {
+                alert("Eroare la salvare jucător!");
+            }
+        };
+
+        window.deletePlayer = async (id) => {
+            if (confirm("Ștergi acest jucător?")) {
+                await deleteDoc(doc(db, "players", id));
+            }
+        };
+
+        const calculeazaClasament = (g) => {
+            if (!g) return [];
+            let st = {}; 
+            g.participanti.forEach(p => st[p] = { v: 0, c: 0, p: 0, nume: p });
+            g.meciuri.forEach(m => {
+                if (!m.gata) return;
+                [{s1:m.s1t, s2:m.s2t}, {s1:m.s1r, s2:m.s2r}].forEach(s => {
+                    if (s.s1 > s.s2) st[m.p1].v++; 
+                    else if (s.s2 > s.s1) st[m.p2].v++;
+                    st[m.p1].c += s.s1; st[m.p1].p += s.s2; 
+                    st[m.p2].c += s.s2; st[m.p2].p += s.s1;
+                });
+            });
+            return Object.values(st).sort((a,b) => b.v - a.v || b.c - a.c || a.p - b.p);
+        };
+
+        const creeazaMeciuriFiecareCuFiecare = (participanti, prefixId) => {
+            let meciuri = [];
+            for (let i = 0; i < participanti.length; i++) {
+                for (let j = i + 1; j < participanti.length; j++) {
+                    meciuri.push({
+                        id: `${prefixId}_${i}${j}`,
+                        p1: participanti[i],
+                        p2: participanti[j],
+                        s1t: 0, s2t: 0, s1r: 0, s2r: 0,
+                        gata: false
+                    });
+                }
+            }
+            return meciuri;
+        };
+
+        window.startFaza1 = async () => {
+            if (listaPlayers.length < 8) return alert("Sunt necesari cel puțin 8 jucători adăugați!");
+            if (!confirm("Pornire FAZA 1 (Grupe)? Toate datele sezoniere curente vor fi resetate!")) return;
+
+            let numes = listaPlayers.map(p => p.nume).sort(() => Math.random() - 0.5);
+            let grupeKeys = ["A", "B", "C", "D", "E", "F", "G", "H"];
+            let f1 = {};
+
+            grupeKeys.forEach(k => f1[k] = { participanti: [], meciuri: [] });
+            numes.forEach((nume, idx) => f1[grupeKeys[idx % 8]].participanti.push(nume));
+
+            grupeKeys.forEach(gk => {
+                f1[gk].meciuri = creeazaMeciuriFiecareCuFiecare(f1[gk].participanti, `m10_f1_${gk}`);
+            });
+
+            await setDoc(doc(db, "sezoane", SEZON_ID), { f1, fazaCurenta: "f1", status: "activ" });
+            alert("Faza 1 (Grupe A-H) a fost creată cu succes!");
+        };
+
+        window.startFaza2 = async () => {
+            if (!confirm("Confirmi trecerea la FAZA 2 (16-imi)?")) return;
+            const f1 = currentSezonData.f1;
+            const getLoc = (g, pos) => calculeazaClasament(f1[g])[pos - 1]?.nume;
+
+            const structuraF2 = {
+                "A": [getLoc("A", 1), getLoc("B", 2), getLoc("C", 1), getLoc("D", 2)],
+                "B": [getLoc("E", 1), getLoc("F", 2), getLoc("G", 1), getLoc("H", 2)],
+                "C": [getLoc("A", 2), getLoc("B", 1), getLoc("C", 2), getLoc("D", 1)],
+                "D": [getLoc("E", 2), getLoc("F", 1), getLoc("G", 2), getLoc("H", 1)]
+            };
+
+            let f2 = {};
+            Object.keys(structuraF2).forEach(gk => {
+                f2[gk] = {
+                    participanti: structuraF2[gk],
+                    meciuri: creeazaMeciuriFiecareCuFiecare(structuraF2[gk], `m10_f2_${gk}`)
+                };
+            });
+
+            await setDoc(doc(db, "sezoane", SEZON_ID), { ...currentSezonData, f2, fazaCurenta: "f2" });
+            alert("Faza 2 (16-imi Grupe A-D) a fost creată!");
+        };
+
+        window.startFaza3 = async () => {
+            if (!confirm("Confirmi trecerea la FAZA 3 (8-imi / Optimi)?")) return;
+            const f2 = currentSezonData.f2;
+            const getLoc = (g, pos) => calculeazaClasament(f2[g])[pos - 1]?.nume;
+
+            let meciuri = [
+                { id: "m10_f3_1", p1: getLoc("A", 1), p2: getLoc("B", 2), s1t:0, s2t:0, s1r:0, s2r:0, gata: false },
+                { id: "m10_f3_2", p1: getLoc("A", 2), p2: getLoc("B", 1), s1t:0, s2t:0, s1r:0, s2r:0, gata: false },
+                { id: "m10_f3_3", p1: getLoc("C", 1), p2: getLoc("D", 2), s1t:0, s2t:0, s1r:0, s2r:0, gata: false },
+                { id: "m10_f3_4", p1: getLoc("C", 2), p2: getLoc("D", 1), s1t:0, s2t:0, s1r:0, s2r:0, gata: false }
+            ];
+
+            let f3 = { "OPTIMI": { meciuri } };
+            await setDoc(doc(db, "sezoane", SEZON_ID), { ...currentSezonData, f3, fazaCurenta: "f3" });
+            alert("Faza 3 (8-imi) a fost creată!");
+        };
+
+        const getCastigatorMeciEliminatoriu = (m) => {
+            if (!m || !m.gata) return null;
+            const totP1 = m.s1t + m.s1r;
+            const totP2 = m.s2t + m.s2r;
+            return totP1 >= totP2 ? m.p1 : m.p2;
+        };
+
+        window.startFaza4 = async () => {
+            if (!confirm("Confirmi trecerea la Semifinale?")) return;
+            const mOptimi = currentSezonData.f3.OPTIMI.meciuri;
+
+            const c1 = getCastigatorMeciEliminatoriu(mOptimi[0]);
+            const c2 = getCastigatorMeciEliminatoriu(mOptimi[1]);
+            const c3 = getCastigatorMeciEliminatoriu(mOptimi[2]);
+            const c4 = getCastigatorMeciEliminatoriu(mOptimi[3]);
+
+            let meciuri = [
+                { id: "m10_f4_1", p1: c1, p2: c2, s1t:0, s2t:0, s1r:0, s2r:0, gata: false },
+                { id: "m10_f4_2", p1: c3, p2: c4, s1t:0, s2t:0, s1r:0, s2r:0, gata: false }
+            ];
+
+            let f4 = { "SEMIFINALE": { meciuri } };
+            await setDoc(doc(db, "sezoane", SEZON_ID), { ...currentSezonData, f4, fazaCurenta: "f4" });
+            alert("Semifinalele au fost create!");
+        };
+
+        window.startFaza5 = async () => {
+            if (!confirm("Confirmi crearea FINALEI?")) return;
+            const mSemi = currentSezonData.f4.SEMIFINALE.meciuri;
+
+            const c1 = getCastigatorMeciEliminatoriu(mSemi[0]);
+            const c2 = getCastigatorMeciEliminatoriu(mSemi[1]);
+
+            let meciuri = [
+                { id: "m10_f5_1", p1: c1, p2: c2, s1t:0, s2t:0, s1r:0, s2r:0, gata: false }
+            ];
+
+            let f5 = { "FINALA": { meciuri } };
+            await setDoc(doc(db, "sezoane", SEZON_ID), { ...currentSezonData, f5, fazaCurenta: "f5" });
+            alert("Marea Finală a fost creată!");
+        };
+
+        const verificatorGataFaza = (fazaKey) => {
+            if (!currentSezonData || !currentSezonData[fazaKey]) return false;
+            let f = currentSezonData[fazaKey];
+            let toate = [];
+            Object.keys(f).forEach(k => {
+                if (f[k].meciuri) toate.push(...f[k].meciuri);
+            });
+            return toate.length > 0 && toate.every(m => m.gata === true);
+        };
+
+        function renderAdmin() {
+            const root = document.getElementById("admin-app");
+            if (!root) return;
+
+            if (!isAdmin()) {
+                root.innerHTML = `
+                    <div class="max-w-md mx-auto my-20 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-white">
+                        <h2 class="text-xl font-black italic uppercase mb-6 text-center text-blue-500">Autentificare Admin</h2>
+                        <input id="admin-email" type="email" placeholder="Email" class="w-full bg-slate-800 p-4 rounded-xl mb-3 text-xs border border-slate-700 outline-none focus:border-blue-500">
+                        <input id="admin-pass" type="password" placeholder="Parola" class="w-full bg-slate-800 p-4 rounded-xl mb-6 text-xs border border-slate-700 outline-none focus:border-blue-500">
+                        <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-black text-xs uppercase tracking-wider">Logare</button>
+                    </div>`;
+                return;
+            }
+
+            const fazaActuala = currentSezonData?.fazaCurenta || "Niciuna";
+            const gataF1 = verificatorGataFaza("f1");
+            const gataF2 = verificatorGataFaza("f2");
+            const gataF3 = verificatorGataFaza("f3");
+            const gataF4 = verificatorGataFaza("f4");
+
+            root.innerHTML = `
+                <div class="max-w-4xl mx-auto p-4 text-white">
+                    <div class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+                        <h1 class="text-2xl font-black italic uppercase text-blue-500">Admin Dashboard</h1>
+                        <button onclick="logout()" class="text-xs font-bold text-red-500 uppercase">Ieșire</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                        <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl">
+                            <h2 class="text-sm font-black uppercase text-slate-400 mb-4 tracking-widest">Adăugare Jucător</h2>
+                            <div class="space-y-3">
+                                <input id="p-nume" type="text" placeholder="NUME PRENUME" class="w-full bg-slate-800 p-3 rounded-xl text-xs border border-slate-700 outline-none">
+                                <input id="p-poza" type="text" placeholder="URL POZĂ (Ex: https://...)" class="w-full bg-slate-800 p-3 rounded-xl text-xs border border-slate-700 outline-none">
+                                <button onclick="addPlayer()" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-xl font-black text-xs uppercase tracking-wider">Salvează Jucător</button>
+                            </div>
+
+                            <h3 class="text-xs font-bold uppercase text-slate-500 mt-6 mb-3">Jucători Înregistrați (${listaPlayers.length})</h3>
+                            <div class="max-h-60 overflow-y-auto space-y-2 pr-2">
+                                ${listaPlayers.map(p => `
+                                    <div class="flex justify-between items-center bg-black/40 p-2 rounded-xl border border-white/5">
+                                        <div class="flex items-center gap-3">
+                                            ${p.poza ? `<img src="${p.poza}" class="w-6 h-6 rounded-full object-cover">` : `<div class="w-6 h-6 rounded-full bg-slate-700 text-[10px] flex items-center justify-center font-bold">${p.nume.charAt(0)}</div>`}
+                                            <span class="text-xs font-bold">${p.nume}</span>
+                                        </div>
+                                        <button onclick="deletePlayer('${p.id}')" class="text-red-500 hover:text-red-400 font-bold text-xs px-2">✕</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl">
+                            <h2 class="text-sm font-black uppercase text-slate-400 mb-2 tracking-widest">Control Turneu</h2>
+                            <div class="text-xs text-blue-400 font-bold mb-6">Faza Curentă: <span class="uppercase text-white">${fazaActuala}</span></div>
+
+                            <div class="space-y-3">
+                                <button onclick="startFaza1()" class="w-full text-left p-4 rounded-2xl border font-black text-xs uppercase transition-all bg-blue-600/20 border-blue-500/40 text-blue-300 hover:bg-blue-600 hover:text-white">
+                                    1. Start Faza 1 (8 Grupe Random)
+                                </button>
+
+                                <button onclick="startFaza2()" ${!gataF1 ? 'disabled' : ''} class="w-full text-left p-4 rounded-2xl border font-black text-xs uppercase transition-all ${gataF1 ? 'bg-green-600/20 border-green-500/40 text-green-300 hover:bg-green-600 hover:text-white' : 'bg-slate-800/40 border-slate-800 text-slate-600 cursor-not-allowed'}">
+                                    2. Start Faza 2 (16-imi Grupe) ${!gataF1 ? '(Așteaptă finalizare F1)' : ''}
+                                </button>
+
+                                <button onclick="startFaza3()" ${!gataF2 ? 'disabled' : ''} class="w-full text-left p-4 rounded-2xl border font-black text-xs uppercase transition-all ${gataF2 ? 'bg-green-600/20 border-green-500/40 text-green-300 hover:bg-green-600 hover:text-white' : 'bg-slate-800/40 border-slate-800 text-slate-600 cursor-not-allowed'}">
+                                    3. Start Faza 3 (8-imi / Optimi) ${!gataF2 ? '(Așteaptă finalizare F2)' : ''}
+                                </button>
+
+                                <button onclick="startFaza4()" ${!gataF3 ? 'disabled' : ''} class="w-full text-left p-4 rounded-2xl border font-black text-xs uppercase transition-all ${gataF3 ? 'bg-green-600/20 border-green-500/40 text-green-300 hover:bg-green-600 hover:text-white' : 'bg-slate-800/40 border-slate-800 text-slate-600 cursor-not-allowed'}">
+                                    4. Start Semifinale ${!gataF3 ? '(Așteaptă finalizare Optimi)' : ''}
+                                </button>
+
+                                <button onclick="startFaza5()" ${!gataF4 ? 'disabled' : ''} class="w-full text-left p-4 rounded-2xl border font-black text-xs uppercase transition-all ${gataF4 ? 'bg-green-600/20 border-green-500/40 text-green-300 hover:bg-green-600 hover:text-white' : 'bg-slate-800/40 border-slate-800 text-slate-600 cursor-not-allowed'}">
+                                    5. Start Finala ${!gataF4 ? '(Așteaptă finalizare Semifinale)' : ''}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        onAuthStateChanged(auth, u => { userLogat = u; renderAdmin(); });
+        onSnapshot(doc(db, "sezoane", SEZON_ID), s => { currentSezonData = s.exists() ? s.data() : null; renderAdmin(); });
+        onSnapshot(collection(db, "players"), s => {
+            listaPlayers = [];
+            s.forEach(d => listaPlayers.push({ id: d.id, ...d.data() }));
+            renderAdmin();
+        });
+    </script>
+</head>
+<body class="bg-black font-sans selection:bg-blue-500/30">
+    <div id="admin-app"></div>
+</body>
+</html>
